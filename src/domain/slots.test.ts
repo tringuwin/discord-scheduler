@@ -42,7 +42,7 @@ describe('computeSlots', () => {
   });
 
   it('removes already-reserved instants', () => {
-    const opts = { rules: [rule({})], slotMinutes: 30, now: SUN_JAN, horizonDays: 1 } as const;
+    const opts = { rules: [rule({})], slotMinutes: 30, now: SUN_JAN, horizonDays: 1 };
     const all = computeSlots({ ...opts, reservedStartUtc: new Set() });
     const remaining = computeSlots({ ...opts, reservedStartUtc: new Set([all[0]!.startUtc.getTime()]) });
     expect(remaining).toHaveLength(all.length - 1);

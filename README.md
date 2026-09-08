@@ -12,8 +12,10 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full design.
   admin `/availability` with a click-based day → time-range wizard. ✅
 - **Phase 2:** `/book` (admin → day → time wizard) with atomic slot reservation
   (no double-booking), and `/my-bookings` with cancel. ✅
-- **Next:** live private voice channels created at meeting time (and torn down
-  once empty), reminders, then the invite feature.
+- **Phase 3:** live meetings — a 30s scheduler opens a private voice channel at
+  start time, DMs reminders, and tears the channel down once it empties (plus
+  no-show / hard-cap backstops). Restart-safe: state is rebuilt from the DB. ✅
+- **Next:** the invite feature (add other members to your booking).
 
 ## Prerequisites
 
