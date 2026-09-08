@@ -11,11 +11,12 @@ export const CID = {
   availClearConfirm: 'avail:clear:confirm',
   availClearCancel: 'avail:clear:cancel',
 
-  /** Booking wizard. Prefixed ids carry state (admin id, date, slot start). */
+  /** Booking wizard. State lives in a session keyed by the message id, so these
+   *  ids are fixed (no embedded payload). */
   bookAdmin: 'book:admin',
-  bookDatePrefix: 'book:date:', // + <adminId>
-  bookTimePrefix: 'book:time:', // + <adminId>:<yyyy-LL-dd>
-  bookConfirmPrefix: 'book:confirm:', // + <adminId>:<startEpochMillis>
+  bookDate: 'book:date',
+  bookTime: 'book:time',
+  bookConfirm: 'book:confirm',
   bookAbort: 'book:abort',
 
   /** Cancel button on a /my-bookings entry. */

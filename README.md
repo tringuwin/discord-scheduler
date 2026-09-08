@@ -19,8 +19,13 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full design.
   get an Accept/Decline DM, and accepting grants the voice channel (live if the
   meeting is already open). ✅
 
-All four core features are implemented. Next up is polish: date-specific
-availability exceptions, pagination, and multi-admin meetings.
+- **Phase 5:** multi-admin meetings — `/book` lets you pick several admins at
+  once; offered times are the **intersection** of their availability, and the
+  booking reserves a slot for every admin atomically. ✅
+
+All four core features plus multi-admin are implemented. Next up is polish:
+date-specific availability exceptions and pagination beyond the 14-day / 25-slot
+component limits.
 
 ## Prerequisites
 
@@ -77,7 +82,7 @@ delete voice channels, so grant these permissions: **View Channels**,
 | `/config view` · `/config set` | Server managers | Set admin role, meeting category, default timezone, slot length, reminder lead |
 | `/timezone set` · `/timezone view` | Everyone | Set/see your IANA timezone (used for all scheduling) |
 | `/availability set` · `view` · `clear` | Admin role | Manage your weekly bookable availability |
-| `/book` | Everyone | Book a meeting: pick an admin → day → time (shown in your timezone) → confirm |
+| `/book` | Everyone | Book a meeting: pick one or more admins → day → time (shown in your timezone) → confirm |
 | `/my-bookings` | Everyone | List your upcoming meetings; organizers get **Invite** + **Cancel**, the meeting admin gets **Cancel** |
 
 `/availability set` opens a menu: pick the day(s), then enter a start/end time.

@@ -45,8 +45,8 @@ export async function routeInteraction(interaction: Interaction): Promise<void> 
       const { customId } = interaction;
       if (customId === CID.availDays) await handleDaySelect(interaction);
       else if (customId === CID.bookAdmin) await handleBookAdminSelect(interaction);
-      else if (customId.startsWith(CID.bookDatePrefix)) await handleBookDateSelect(interaction);
-      else if (customId.startsWith(CID.bookTimePrefix)) await handleBookTimeSelect(interaction);
+      else if (customId === CID.bookDate) await handleBookDateSelect(interaction);
+      else if (customId === CID.bookTime) await handleBookTimeSelect(interaction);
       return;
     }
 
@@ -65,7 +65,7 @@ export async function routeInteraction(interaction: Interaction): Promise<void> 
       if (customId === CID.availClearConfirm) await handleClearConfirm(interaction);
       else if (customId === CID.availClearCancel) await handleClearCancel(interaction);
       else if (customId === CID.bookAbort) await handleBookAbort(interaction);
-      else if (customId.startsWith(CID.bookConfirmPrefix)) await handleBookConfirm(interaction);
+      else if (customId === CID.bookConfirm) await handleBookConfirm(interaction);
       else if (customId.startsWith(CID.myBookingCancelPrefix)) await handleMyBookingCancel(interaction);
       else if (customId.startsWith(CID.inviteStartPrefix)) await handleInviteStart(interaction);
       else if (customId.startsWith(CID.inviteAcceptPrefix)) await handleInviteAccept(interaction);

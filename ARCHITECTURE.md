@@ -40,18 +40,21 @@ and the bot spins up a private voice channel at meeting time.
 ## 3. Data model (Prisma / SQLite)
 
 ```
-Guild            id, adminRoleId, channelCategoryId, defaultTz, slotMinutes, reminderMinutes
+Guild            id, adminRoleId, categoryId, defaultTz, slotMinutes, reminderMinutes
 UserPref         discordId, timezone                         # per-user TZ
 AvailabilityRule id, guildId, adminId, dayOfWeek, startMin, endMin, tz
 Booking          id, guildId, organizerId, status(pending|confirmed|cancelled|done),
-                 startUtc, endUtc, createdAt
-BookingAdmin     bookingId, adminId                          # which admins are in the meeting
+                 startUtc, endUtc, reminded, createdAt
 SlotReservation  id, adminId, startUtc, bookingId            # UNIQUE(adminId, startUtc) ← no double-book
 Participant      bookingId, userId, role(organizer|admin|invitee), state(invited|accepted|declined)
-MeetingChannel   bookingId, channelId, createdAt             # for cleanup
+MeetingChannel   bookingId, channelId, everJoined, createdAt # live channel + empty-cleanup guard
 ```
 
-Cancelling a booking deletes its `SlotReservation` rows, freeing the slots atomically.
+A booking's admins are its `Participant` rows with role `admin` (one source of truth,
+no separate join table) plus one `SlotReservation` per admin. A multi-admin booking
+reserves every admin's slot in one transaction; if any is already taken the whole
+transaction rolls back. Cancelling deletes the booking's `SlotReservation` rows,
+freeing the slots atomically.
 
 ---
 
@@ -63,10 +66,13 @@ Cancelling a booking deletes its `SlotReservation` rows, freeing the slots atomi
 - `/availability view` · `/availability clear`
 
 **Member**
-- `/book` — wizard: choose admin(s) → date pager (buttons) → available-time select menu →
-  confirm. Writes a `confirmed` booking + reservations.
-- `/my-bookings` — list upcoming; per-booking **Cancel** and **Invite** buttons.
-- `/invite` — user-select menu to add members; each invitee gets Accept/Decline.
+- `/book` — wizard: choose admin(s) → day select → available-time select menu → confirm.
+  Offered times are the intersection of the chosen admins' availability. Writes a
+  `confirmed` booking + one reservation per admin. Wizard state is held in a short-lived
+  session keyed by the ephemeral message id.
+- `/my-bookings` — list upcoming; organizer gets **Invite** + **Cancel**, the meeting's
+  admin gets **Cancel**. Invite opens a user-select menu; each invitee gets an
+  Accept/Decline DM.
 
 **Everyone**
 - `/timezone set` — set your IANA timezone (prompted automatically on first `/book`).

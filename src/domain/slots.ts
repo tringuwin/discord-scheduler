@@ -85,6 +85,23 @@ export function computeSlots(params: ComputeSlotsParams): Slot[] {
   return [...byStart.values()].sort((a, b) => a.startUtc.getTime() - b.startUtc.getTime());
 }
 
+/**
+ * Intersect several slot lists by start instant — the slots that are free for
+ * *every* set. Used to offer only times when all chosen admins are available.
+ */
+export function intersectSlots(slotSets: Slot[][]): Slot[] {
+  if (slotSets.length === 0) return [];
+  const current = new Map<number, Slot>(slotSets[0]!.map((s) => [s.startUtc.getTime(), s]));
+  for (let i = 1; i < slotSets.length; i++) {
+    const times = new Set(slotSets[i]!.map((s) => s.startUtc.getTime()));
+    for (const ms of [...current.keys()]) {
+      if (!times.has(ms)) current.delete(ms);
+    }
+    if (current.size === 0) break;
+  }
+  return [...current.values()].sort((a, b) => a.startUtc.getTime() - b.startUtc.getTime());
+}
+
 /** The calendar-date key ("yyyy-LL-dd") a slot falls on, in the viewer's tz. */
 export function slotDateKey(startUtc: Date, tz: string): string {
   return DateTime.fromJSDate(startUtc).setZone(tz).toFormat('yyyy-LL-dd');

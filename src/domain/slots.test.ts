@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DateTime } from 'luxon';
-import { computeSlots, formatSlotTime, slotDateKey, type Rule } from './slots';
+import { computeSlots, formatSlotTime, intersectSlots, slotDateKey, type Rule, type Slot } from './slots';
 
 // Anchor "now" on a Sunday and use horizonDays: 1 so exactly one Monday (the
 // next day) falls in range — in every timezone under test. This keeps slot
@@ -102,6 +102,29 @@ describe('computeSlots', () => {
     });
     const starts = slots.map((s) => formatSlotTime(s.startUtc, 'UTC'));
     expect(starts).toEqual(['09:00', '09:30', '10:00']);
+  });
+});
+
+describe('intersectSlots', () => {
+  const mk = (ms: number): Slot => ({ startUtc: new Date(ms), endUtc: new Date(ms + 30 * 60_000) });
+
+  it('keeps only instants present in every set, sorted', () => {
+    const a = [mk(3000), mk(1000), mk(2000)];
+    const b = [mk(2000), mk(3000), mk(4000)];
+    const c = [mk(2000), mk(3000)];
+    expect(intersectSlots([a, b, c]).map((s) => s.startUtc.getTime())).toEqual([2000, 3000]);
+  });
+
+  it('returns a single set as-is (sorted)', () => {
+    expect(intersectSlots([[mk(2000), mk(1000)]]).map((s) => s.startUtc.getTime())).toEqual([1000, 2000]);
+  });
+
+  it('is empty when there is no overlap', () => {
+    expect(intersectSlots([[mk(1000)], [mk(2000)]])).toHaveLength(0);
+  });
+
+  it('is empty for no sets', () => {
+    expect(intersectSlots([])).toHaveLength(0);
   });
 });
 

@@ -31,8 +31,13 @@ async function renderMyBookings(guildId: string, userId: string): Promise<Intera
 
   const shown = bookings.slice(0, MAX_SHOWN);
   const lines = shown.map((b, i) => {
-    const withWhom = b.organizerId === userId ? `admin <@${b.adminId}>` : `<@${b.organizerId}>`;
-    return `**${i + 1}.** ${formatSlotFull(b.startUtc, tz)} — with ${withWhom}`;
+    const adminMentions =
+      b.participants
+        .filter((p) => p.role === 'admin')
+        .map((p) => `<@${p.userId}>`)
+        .join(', ') || '_none_';
+    const suffix = b.organizerId === userId ? '' : ` · booked by <@${b.organizerId}>`;
+    return `**${i + 1}.** ${formatSlotFull(b.startUtc, tz)} — with ${adminMentions}${suffix}`;
   });
 
   const embed = new EmbedBuilder()
@@ -45,7 +50,7 @@ async function renderMyBookings(guildId: string, userId: string): Promise<Intera
   const rows: ActionRowBuilder<ButtonBuilder>[] = [];
   shown.forEach((b, i) => {
     const isOrganizer = b.organizerId === userId;
-    const isAdmin = b.adminId === userId;
+    const isAdmin = b.participants.some((p) => p.userId === userId && p.role === 'admin');
     const buttons: ButtonBuilder[] = [];
     if (isOrganizer) {
       buttons.push(

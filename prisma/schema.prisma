@@ -51,12 +51,12 @@ model AvailabilityRule {
   @@index([guildId, adminId])
 }
 
-/// A scheduled meeting. Phase 1 is single-admin; a join table is added in Phase 4.
+/// A scheduled meeting. May involve one or more admins; the admin set lives in
+/// `participants` (role "admin") and in the per-admin `reservations`.
 model Booking {
   id          String   @id @default(cuid())
   guildId     String
   organizerId String // user who booked
-  adminId     String // the admin being met
   status      String   @default("confirmed") // pending|confirmed|cancelled|done
   startUtc    DateTime
   endUtc      DateTime

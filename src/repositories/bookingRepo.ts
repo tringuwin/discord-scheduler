@@ -1,10 +1,15 @@
 import { Prisma, type Booking, type Participant } from '@prisma/client';
 import { prisma } from '../db/client';
 
+const bookingWithParticipants = Prisma.validator<Prisma.BookingDefaultArgs>()({
+  include: { participants: true },
+});
+export type BookingWithParticipants = Prisma.BookingGetPayload<typeof bookingWithParticipants>;
+
 export interface CreateBookingInput {
   guildId: string;
   organizerId: string;
-  adminId: string;
+  adminIds: string[];
   startUtc: Date;
   endUtc: Date;
 }
@@ -39,32 +44,35 @@ export const bookingRepo = {
   },
 
   /**
-   * Create a confirmed booking, reserving the admin's slot atomically.
-   * The unique (adminId, startUtc) index is the authoritative guard against
-   * two people booking the same slot: the losing transaction rolls back.
+   * Create a confirmed booking, reserving the slot for every chosen admin
+   * atomically. The unique (adminId, startUtc) index is the authoritative guard:
+   * if any one admin's slot is already taken, the whole transaction rolls back.
    */
   async createConfirmed(input: CreateBookingInput): Promise<CreateBookingResult> {
+    const adminIds = [...new Set(input.adminIds)];
     try {
       const booking = await prisma.$transaction(async (tx) => {
         const created = await tx.booking.create({
           data: {
             guildId: input.guildId,
             organizerId: input.organizerId,
-            adminId: input.adminId,
             status: 'confirmed',
             startUtc: input.startUtc,
             endUtc: input.endUtc,
           },
         });
-        await tx.slotReservation.create({
-          data: { adminId: input.adminId, startUtc: input.startUtc, bookingId: created.id },
-        });
+        for (const adminId of adminIds) {
+          await tx.slotReservation.create({
+            data: { adminId, startUtc: input.startUtc, bookingId: created.id },
+          });
+        }
         await tx.participant.create({
           data: { bookingId: created.id, userId: input.organizerId, role: 'organizer', state: 'accepted' },
         });
-        if (input.adminId !== input.organizerId) {
+        for (const adminId of adminIds) {
+          if (adminId === input.organizerId) continue; // organizer row already created
           await tx.participant.create({
-            data: { bookingId: created.id, userId: input.adminId, role: 'admin', state: 'accepted' },
+            data: { bookingId: created.id, userId: adminId, role: 'admin', state: 'accepted' },
           });
         }
         return created;
@@ -79,14 +87,18 @@ export const bookingRepo = {
   },
 
   /** Confirmed upcoming bookings the user is part of (organizer, admin, or non-declined invitee). */
-  async listUpcomingForUser(guildId: string, userId: string, now: Date): Promise<Booking[]> {
+  async listUpcomingForUser(
+    guildId: string,
+    userId: string,
+    now: Date,
+  ): Promise<BookingWithParticipants[]> {
     const parts = await prisma.participant.findMany({
       where: {
         userId,
         state: { not: 'declined' },
         booking: { guildId, status: 'confirmed', startUtc: { gte: now } },
       },
-      include: { booking: true },
+      include: { booking: { include: { participants: true } } },
       orderBy: { booking: { startUtc: 'asc' } },
     });
     return parts.map((p) => p.booking);
@@ -113,14 +125,19 @@ export const bookingRepo = {
     });
   },
 
-  /** Cancel a booking (organizer or its admin only), freeing the slot. */
+  /** Cancel a booking (organizer or any of its admins only), freeing the slots. */
   async cancel(bookingId: string, requesterId: string): Promise<CancelResult> {
     const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
     if (!booking) return { ok: false, reason: 'not_found' };
     if (booking.status !== 'confirmed') return { ok: false, reason: 'not_active' };
-    if (booking.organizerId !== requesterId && booking.adminId !== requesterId) {
-      return { ok: false, reason: 'forbidden' };
+
+    if (booking.organizerId !== requesterId) {
+      const participant = await prisma.participant.findUnique({
+        where: { bookingId_userId: { bookingId, userId: requesterId } },
+      });
+      if (!participant || participant.role !== 'admin') return { ok: false, reason: 'forbidden' };
     }
+
     const [, updated] = await prisma.$transaction([
       prisma.slotReservation.deleteMany({ where: { bookingId } }),
       prisma.booking.update({ where: { id: bookingId }, data: { status: 'cancelled' } }),
