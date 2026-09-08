@@ -40,14 +40,33 @@ async function renderMyBookings(guildId: string, userId: string): Promise<Intera
     .setDescription(lines.join('\n'))
     .setFooter({ text: `Times shown in ${tz}` });
 
-  const rows = shown.map((b, i) =>
-    new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`${CID.myBookingCancelPrefix}${b.id}`)
-        .setLabel(`Cancel #${i + 1}`)
-        .setStyle(ButtonStyle.Danger),
-    ),
-  );
+  // Buttons depend on the viewer's role: organizers can invite and cancel,
+  // the meeting's admin can cancel, invitees get no controls here.
+  const rows: ActionRowBuilder<ButtonBuilder>[] = [];
+  shown.forEach((b, i) => {
+    const isOrganizer = b.organizerId === userId;
+    const isAdmin = b.adminId === userId;
+    const buttons: ButtonBuilder[] = [];
+    if (isOrganizer) {
+      buttons.push(
+        new ButtonBuilder()
+          .setCustomId(`${CID.inviteStartPrefix}${b.id}`)
+          .setLabel(`Invite #${i + 1}`)
+          .setStyle(ButtonStyle.Primary),
+      );
+    }
+    if (isOrganizer || isAdmin) {
+      buttons.push(
+        new ButtonBuilder()
+          .setCustomId(`${CID.myBookingCancelPrefix}${b.id}`)
+          .setLabel(`Cancel #${i + 1}`)
+          .setStyle(ButtonStyle.Danger),
+      );
+    }
+    if (buttons.length > 0) {
+      rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(buttons));
+    }
+  });
 
   const note = bookings.length > MAX_SHOWN ? `\n_Showing the next ${MAX_SHOWN} of ${bookings.length}._` : '';
   return { content: note || undefined, embeds: [embed], components: rows };

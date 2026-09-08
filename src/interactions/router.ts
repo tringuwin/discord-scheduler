@@ -15,6 +15,12 @@ import {
   handleBookTimeSelect,
 } from './bookingWizard';
 import { handleMyBookingCancel } from '../commands/myBookings';
+import {
+  handleInviteAccept,
+  handleInviteDecline,
+  handleInviteSelect,
+  handleInviteStart,
+} from './inviteFlow';
 
 /**
  * Single entry point for every interaction. Dispatches slash commands and
@@ -44,6 +50,11 @@ export async function routeInteraction(interaction: Interaction): Promise<void> 
       return;
     }
 
+    if (interaction.isUserSelectMenu()) {
+      if (interaction.customId.startsWith(CID.inviteUsersPrefix)) await handleInviteSelect(interaction);
+      return;
+    }
+
     if (interaction.isModalSubmit()) {
       if (interaction.customId.startsWith(CID.availTimesPrefix)) await handleTimesModal(interaction);
       return;
@@ -56,6 +67,9 @@ export async function routeInteraction(interaction: Interaction): Promise<void> 
       else if (customId === CID.bookAbort) await handleBookAbort(interaction);
       else if (customId.startsWith(CID.bookConfirmPrefix)) await handleBookConfirm(interaction);
       else if (customId.startsWith(CID.myBookingCancelPrefix)) await handleMyBookingCancel(interaction);
+      else if (customId.startsWith(CID.inviteStartPrefix)) await handleInviteStart(interaction);
+      else if (customId.startsWith(CID.inviteAcceptPrefix)) await handleInviteAccept(interaction);
+      else if (customId.startsWith(CID.inviteDeclinePrefix)) await handleInviteDecline(interaction);
       return;
     }
   } catch (error) {
@@ -64,6 +78,7 @@ export async function routeInteraction(interaction: Interaction): Promise<void> 
       (interaction.isChatInputCommand() ||
         interaction.isButton() ||
         interaction.isStringSelectMenu() ||
+        interaction.isUserSelectMenu() ||
         interaction.isModalSubmit()) &&
       !interaction.replied &&
       !interaction.deferred

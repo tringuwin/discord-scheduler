@@ -15,7 +15,12 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full design.
 - **Phase 3:** live meetings — a 30s scheduler opens a private voice channel at
   start time, DMs reminders, and tears the channel down once it empties (plus
   no-show / hard-cap backstops). Restart-safe: state is rebuilt from the DB. ✅
-- **Next:** the invite feature (add other members to your booking).
+- **Phase 4:** invites — the organizer adds members from `/my-bookings`; invitees
+  get an Accept/Decline DM, and accepting grants the voice channel (live if the
+  meeting is already open). ✅
+
+All four core features are implemented. Next up is polish: date-specific
+availability exceptions, pagination, and multi-admin meetings.
 
 ## Prerequisites
 
@@ -73,7 +78,7 @@ delete voice channels, so grant these permissions: **View Channels**,
 | `/timezone set` · `/timezone view` | Everyone | Set/see your IANA timezone (used for all scheduling) |
 | `/availability set` · `view` · `clear` | Admin role | Manage your weekly bookable availability |
 | `/book` | Everyone | Book a meeting: pick an admin → day → time (shown in your timezone) → confirm |
-| `/my-bookings` | Everyone | List your upcoming meetings and cancel them |
+| `/my-bookings` | Everyone | List your upcoming meetings; organizers get **Invite** + **Cancel**, the meeting admin gets **Cancel** |
 
 `/availability set` opens a menu: pick the day(s), then enter a start/end time.
 `/book` walks admin → day → time and reserves the slot atomically, so the same

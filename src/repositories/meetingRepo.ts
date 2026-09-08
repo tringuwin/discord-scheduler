@@ -60,6 +60,11 @@ export const meetingRepo = {
     return prisma.meetingChannel.findUnique({ where: { channelId }, include: { booking: true } });
   },
 
+  /** The open channel for a booking, if one exists. */
+  channelForBooking(bookingId: string): Promise<MeetingChannel | null> {
+    return prisma.meetingChannel.findUnique({ where: { bookingId } });
+  },
+
   /** Remove the channel record and mark the booking done, atomically. */
   async closeMeeting(bookingId: string): Promise<void> {
     await prisma.$transaction([

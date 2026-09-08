@@ -20,4 +20,10 @@ export const CID = {
 
   /** Cancel button on a /my-bookings entry. */
   myBookingCancelPrefix: 'mybook:cancel:', // + <bookingId>
+
+  /** Invite flow. */
+  inviteStartPrefix: 'invite:start:', // + <bookingId>  (button on /my-bookings)
+  inviteUsersPrefix: 'invite:users:', // + <bookingId>  (user-select)
+  inviteAcceptPrefix: 'invite:accept:', // + <bookingId>  (DM button)
+  inviteDeclinePrefix: 'invite:decline:', // + <bookingId>  (DM button)
 } as const;

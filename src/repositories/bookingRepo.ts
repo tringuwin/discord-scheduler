@@ -1,4 +1,4 @@
-import { Prisma, type Booking } from '@prisma/client';
+import { Prisma, type Booking, type Participant } from '@prisma/client';
 import { prisma } from '../db/client';
 
 export interface CreateBookingInput {
@@ -78,14 +78,39 @@ export const bookingRepo = {
     }
   },
 
-  /** Confirmed upcoming bookings the user is part of (organizer, admin, or invitee). */
+  /** Confirmed upcoming bookings the user is part of (organizer, admin, or non-declined invitee). */
   async listUpcomingForUser(guildId: string, userId: string, now: Date): Promise<Booking[]> {
     const parts = await prisma.participant.findMany({
-      where: { userId, booking: { guildId, status: 'confirmed', startUtc: { gte: now } } },
+      where: {
+        userId,
+        state: { not: 'declined' },
+        booking: { guildId, status: 'confirmed', startUtc: { gte: now } },
+      },
       include: { booking: true },
       orderBy: { booking: { startUtc: 'asc' } },
     });
     return parts.map((p) => p.booking);
+  },
+
+  findById(bookingId: string): Promise<Booking | null> {
+    return prisma.booking.findUnique({ where: { id: bookingId } });
+  },
+
+  getParticipant(bookingId: string, userId: string): Promise<Participant | null> {
+    return prisma.participant.findUnique({ where: { bookingId_userId: { bookingId, userId } } });
+  },
+
+  createInvitee(bookingId: string, userId: string): Promise<Participant> {
+    return prisma.participant.create({
+      data: { bookingId, userId, role: 'invitee', state: 'invited' },
+    });
+  },
+
+  async setParticipantState(bookingId: string, userId: string, state: string): Promise<void> {
+    await prisma.participant.update({
+      where: { bookingId_userId: { bookingId, userId } },
+      data: { state },
+    });
   },
 
   /** Cancel a booking (organizer or its admin only), freeing the slot. */

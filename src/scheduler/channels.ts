@@ -58,6 +58,23 @@ export async function deleteMeetingChannel(client: Client, guildId: string, chan
   if (channel) await channel.delete('Meeting ended').catch(() => undefined);
 }
 
+/** Grant a user View/Connect/Speak on an already-open meeting channel. */
+export async function grantChannelAccess(
+  client: Client,
+  guildId: string,
+  channelId: string,
+  userId: string,
+): Promise<void> {
+  const guild = await client.guilds.fetch(guildId).catch(() => null);
+  if (!guild) return;
+  const channel = await guild.channels.fetch(channelId).catch(() => null);
+  if (channel && channel.isVoiceBased()) {
+    await channel.permissionOverwrites
+      .edit(userId, { ViewChannel: true, Connect: true, Speak: true })
+      .catch(() => undefined);
+  }
+}
+
 /** Whether a meeting channel currently has no connected members (true if gone). */
 export async function isChannelEmpty(client: Client, guildId: string, channelId: string): Promise<boolean> {
   const guild = await client.guilds.fetch(guildId).catch(() => null);
