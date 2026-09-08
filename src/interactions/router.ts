@@ -7,6 +7,14 @@ import {
   handleDaySelect,
   handleTimesModal,
 } from './availabilityWizard';
+import {
+  handleBookAbort,
+  handleBookAdminSelect,
+  handleBookConfirm,
+  handleBookDateSelect,
+  handleBookTimeSelect,
+} from './bookingWizard';
+import { handleMyBookingCancel } from '../commands/myBookings';
 
 /**
  * Single entry point for every interaction. Dispatches slash commands and
@@ -28,7 +36,11 @@ export async function routeInteraction(interaction: Interaction): Promise<void> 
     }
 
     if (interaction.isStringSelectMenu()) {
-      if (interaction.customId === CID.availDays) await handleDaySelect(interaction);
+      const { customId } = interaction;
+      if (customId === CID.availDays) await handleDaySelect(interaction);
+      else if (customId === CID.bookAdmin) await handleBookAdminSelect(interaction);
+      else if (customId.startsWith(CID.bookDatePrefix)) await handleBookDateSelect(interaction);
+      else if (customId.startsWith(CID.bookTimePrefix)) await handleBookTimeSelect(interaction);
       return;
     }
 
@@ -38,8 +50,12 @@ export async function routeInteraction(interaction: Interaction): Promise<void> 
     }
 
     if (interaction.isButton()) {
-      if (interaction.customId === CID.availClearConfirm) await handleClearConfirm(interaction);
-      else if (interaction.customId === CID.availClearCancel) await handleClearCancel(interaction);
+      const { customId } = interaction;
+      if (customId === CID.availClearConfirm) await handleClearConfirm(interaction);
+      else if (customId === CID.availClearCancel) await handleClearCancel(interaction);
+      else if (customId === CID.bookAbort) await handleBookAbort(interaction);
+      else if (customId.startsWith(CID.bookConfirmPrefix)) await handleBookConfirm(interaction);
+      else if (customId.startsWith(CID.myBookingCancelPrefix)) await handleMyBookingCancel(interaction);
       return;
     }
   } catch (error) {

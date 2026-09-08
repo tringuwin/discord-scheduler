@@ -8,9 +8,12 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full design.
 
 ## Status
 
-**Phase 1 (this scaffold):** project skeleton, database schema, and the
-`/config`, `/timezone`, and `/availability` commands with a click-based
-day → time-range wizard. Booking, live voice channels, and invites come in later phases.
+- **Phase 1:** project skeleton, database schema, `/config`, `/timezone`, and
+  admin `/availability` with a click-based day → time-range wizard. ✅
+- **Phase 2:** `/book` (admin → day → time wizard) with atomic slot reservation
+  (no double-booking), and `/my-bookings` with cancel. ✅
+- **Next:** live private voice channels created at meeting time (and torn down
+  once empty), reminders, then the invite feature.
 
 ## Prerequisites
 
@@ -67,8 +70,12 @@ delete voice channels, so grant these permissions: **View Channels**,
 | `/config view` · `/config set` | Server managers | Set admin role, meeting category, default timezone, slot length, reminder lead |
 | `/timezone set` · `/timezone view` | Everyone | Set/see your IANA timezone (used for all scheduling) |
 | `/availability set` · `view` · `clear` | Admin role | Manage your weekly bookable availability |
+| `/book` | Everyone | Book a meeting: pick an admin → day → time (shown in your timezone) → confirm |
+| `/my-bookings` | Everyone | List your upcoming meetings and cancel them |
 
 `/availability set` opens a menu: pick the day(s), then enter a start/end time.
+`/book` walks admin → day → time and reserves the slot atomically, so the same
+slot can never be double-booked.
 
 ## Project layout
 
@@ -88,6 +95,7 @@ prisma/schema.prisma    database schema
 ## Useful scripts
 
 ```bash
+npm test            # run unit tests (Vitest)
 npm run typecheck   # type-check without emitting
 npm run db:studio   # browse the database in Prisma Studio
 ```

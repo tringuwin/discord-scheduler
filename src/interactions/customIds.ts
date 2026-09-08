@@ -10,4 +10,14 @@ export const CID = {
   /** Confirm / cancel buttons for clearing availability. */
   availClearConfirm: 'avail:clear:confirm',
   availClearCancel: 'avail:clear:cancel',
+
+  /** Booking wizard. Prefixed ids carry state (admin id, date, slot start). */
+  bookAdmin: 'book:admin',
+  bookDatePrefix: 'book:date:', // + <adminId>
+  bookTimePrefix: 'book:time:', // + <adminId>:<yyyy-LL-dd>
+  bookConfirmPrefix: 'book:confirm:', // + <adminId>:<startEpochMillis>
+  bookAbort: 'book:abort',
+
+  /** Cancel button on a /my-bookings entry. */
+  myBookingCancelPrefix: 'mybook:cancel:', // + <bookingId>
 } as const;
