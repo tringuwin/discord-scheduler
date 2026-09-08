@@ -107,7 +107,20 @@ prisma/schema.prisma    database schema
 ## Useful scripts
 
 ```bash
-npm test            # run unit tests (Vitest)
+npm test            # run unit + integration tests (Vitest)
 npm run typecheck   # type-check without emitting
 npm run db:studio   # browse the database in Prisma Studio
 ```
+
+## Testing
+
+- **Unit** — pure logic: timezone/DST-aware slot computation, availability
+  intersection, and the scheduler's timing rules.
+- **Integration** — the real repositories against a throwaway SQLite database
+  (`src/integration/*.int.test.ts`): the booking lifecycle end-to-end —
+  reservation, double-book rejection, multi-admin all-or-nothing rollback,
+  cancel, and the invite state machine.
+- **Not automated** — the live Discord layer (gateway login, voice-channel
+  creation/teardown, DM delivery, and clicking through the slash-command UI)
+  requires a real bot token and a test server, and slash-command interactions
+  can't be self-driven by the bot. Run the bot (see Setup) to exercise those.
