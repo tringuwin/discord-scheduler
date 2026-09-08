@@ -50,23 +50,15 @@ component limits.
    Fill in `DISCORD_TOKEN` and `DISCORD_CLIENT_ID`. Set `DEV_GUILD_ID` to your
    test server's id so slash commands appear instantly during development.
 
-3. Create the database:
+3. Start everything with one command — applies migrations, registers slash
+   commands, then runs the bot with hot-reload:
 
    ```bash
-   npm run db:migrate
+   npm run go
    ```
 
-4. Register slash commands:
-
-   ```bash
-   npm run deploy
-   ```
-
-5. Run the bot:
-
-   ```bash
-   npm run dev
-   ```
+   Prefer the steps individually? `npm run db:migrate` (create/apply the DB),
+   then `npm run deploy` (register commands), then `npm run dev` (run).
 
 ## Inviting the bot
 
