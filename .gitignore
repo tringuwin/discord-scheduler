@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.env
+.env.local
+
+# SQLite
+*.db
+*.db-journal
+prisma/dev.db*
+prisma/*.db
+prisma/*.db-journal
+
+# logs / editor
+*.log
+.DS_Store
+.vscode/

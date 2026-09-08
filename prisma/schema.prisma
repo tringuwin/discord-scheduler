@@ -1,0 +1,107 @@
+// Prisma schema for the Discord scheduling bot.
+// SQLite provider: note it has NO native enum support, so status/role/state
+// fields are plain strings (allowed values documented in comments).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// Per-server configuration.
+model Guild {
+  id              String  @id // Discord guild (server) id
+  adminRoleId     String? // role whose members can set availability & be booked
+  categoryId      String? // category to create meeting voice channels under
+  defaultTz       String  @default("UTC") // fallback timezone for the server
+  slotMinutes     Int     @default(30) // booking slot length
+  reminderMinutes Int     @default(10) // how long before start to remind
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  availabilityRules AvailabilityRule[]
+  bookings          Booking[]
+}
+
+/// A user's chosen IANA timezone (e.g. "America/New_York").
+model UserPref {
+  discordId String   @id
+  timezone  String
+  updatedAt DateTime @updatedAt
+}
+
+/// A recurring weekly availability block for one admin.
+model AvailabilityRule {
+  id        String @id @default(cuid())
+  guildId   String
+  adminId   String // Discord user id of the admin
+  dayOfWeek Int // Luxon weekday: 1=Mon ... 7=Sun
+  startMin  Int // minutes from midnight, expressed in `tz`
+  endMin    Int
+  tz        String // IANA timezone the times are expressed in
+
+  createdAt DateTime @default(now())
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@index([guildId, adminId])
+}
+
+/// A scheduled meeting. Phase 1 is single-admin; a join table is added in Phase 4.
+model Booking {
+  id          String   @id @default(cuid())
+  guildId     String
+  organizerId String // user who booked
+  adminId     String // the admin being met
+  status      String   @default("confirmed") // pending|confirmed|cancelled|done
+  startUtc    DateTime
+  endUtc      DateTime
+  reminded    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  guild        Guild             @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  reservations SlotReservation[]
+  participants Participant[]
+  channel      MeetingChannel?
+
+  @@index([guildId, startUtc])
+  @@index([status, startUtc])
+}
+
+/// The atomic no-double-booking guard: one row per (admin, slot instant).
+model SlotReservation {
+  id        String   @id @default(cuid())
+  adminId   String
+  startUtc  DateTime
+  bookingId String
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@unique([adminId, startUtc]) // a slot can belong to only one active booking
+}
+
+/// A person attached to a booking (organizer, admin, or invitee).
+model Participant {
+  bookingId String
+  userId    String
+  role      String // organizer|admin|invitee
+  state     String @default("accepted") // invited|accepted|declined
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@id([bookingId, userId])
+}
+
+/// The live voice channel created for a booking (Phase 2).
+model MeetingChannel {
+  bookingId  String   @id
+  channelId  String   @unique
+  everJoined Boolean  @default(false) // has anyone joined yet? (empty-cleanup guard)
+  createdAt  DateTime @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
