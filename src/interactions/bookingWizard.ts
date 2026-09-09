@@ -12,34 +12,19 @@ import {
   type ModalSubmitInteraction,
   type StringSelectMenuInteraction,
 } from 'discord.js';
-import type { Guild } from '@prisma/client';
 import { DateTime } from 'luxon';
 import { CID } from './customIds';
 import { clearDraft, getDraft, saveDraft } from './bookingSession';
-import {
-  computeSlots,
-  formatDateKeyLabel,
-  formatSlotFull,
-  formatSlotTime,
-  intersectSlots,
-  slotDateKey,
-  HORIZON_DAYS,
-  type Slot,
-} from '../domain/slots';
+import { dateKey, formatDateLabel, formatDateTime, formatTimeOfDay, TZ_LABEL } from '../domain/appTime';
+import { computeSlots, intersectSlots, HORIZON_DAYS, type Slot } from '../domain/slots';
 import { availabilityRepo } from '../repositories/availabilityRepo';
 import { bookingRepo } from '../repositories/bookingRepo';
 import { guildRepo } from '../repositories/guildRepo';
-import { userPrefRepo } from '../repositories/userPrefRepo';
 import { notifyAdminsOfBooking } from './bookingNotifications';
 
 const MAX_OPTIONS = 25;
 const MAX_NOTE_LEN = 300; // keep the "short message" short (and well under Discord's limit)
 const EXPIRED = 'This booking session expired. Please run `/book` again.';
-
-async function viewerTz(userId: string, guild: Guild): Promise<string> {
-  const pref = await userPrefRepo.get(userId);
-  return pref?.timezone ?? guild.defaultTz;
-}
 
 /** Best-effort display names for a set of admins (falls back if any have left). */
 async function displayNames(guild: DiscordGuild, userIds: string[]): Promise<string> {
@@ -77,11 +62,11 @@ function selectRow(menu: StringSelectMenuBuilder): ActionRowBuilder<StringSelect
   return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu);
 }
 
-function dateOptions(slots: Slot[], tz: string): StringSelectMenuOptionBuilder[] {
+function dateOptions(slots: Slot[]): StringSelectMenuOptionBuilder[] {
   const keys: string[] = [];
   const seen = new Set<string>();
   for (const slot of slots) {
-    const key = slotDateKey(slot.startUtc, tz);
+    const key = dateKey(slot.startUtc);
     if (!seen.has(key)) {
       seen.add(key);
       keys.push(key);
@@ -89,16 +74,16 @@ function dateOptions(slots: Slot[], tz: string): StringSelectMenuOptionBuilder[]
   }
   return keys
     .slice(0, MAX_OPTIONS)
-    .map((key) => new StringSelectMenuOptionBuilder().setLabel(formatDateKeyLabel(key, tz)).setValue(key));
+    .map((key) => new StringSelectMenuOptionBuilder().setLabel(formatDateLabel(key)).setValue(key));
 }
 
-function timeOptions(slots: Slot[], tz: string, dateKey: string): StringSelectMenuOptionBuilder[] {
+function timeOptions(slots: Slot[], day: string): StringSelectMenuOptionBuilder[] {
   return slots
-    .filter((slot) => slotDateKey(slot.startUtc, tz) === dateKey)
+    .filter((slot) => dateKey(slot.startUtc) === day)
     .slice(0, MAX_OPTIONS)
     .map((slot) =>
       new StringSelectMenuOptionBuilder()
-        .setLabel(formatSlotTime(slot.startUtc, tz))
+        .setLabel(formatTimeOfDay(slot.startUtc))
         .setValue(String(slot.startUtc.getTime())),
     );
 }
@@ -127,7 +112,6 @@ export async function handleBookAdminSelect(interaction: StringSelectMenuInterac
   if (!interaction.inCachedGuild()) return;
   const adminIds = [...new Set(interaction.values)];
   const guild = await guildRepo.ensure(interaction.guildId);
-  const tz = await viewerTz(interaction.user.id, guild);
   const slots = await loadCommonSlots(interaction.guildId, adminIds, guild.slotMinutes);
 
   if (slots.length === 0) {
@@ -146,10 +130,10 @@ export async function handleBookAdminSelect(interaction: StringSelectMenuInterac
   const menu = new StringSelectMenuBuilder()
     .setCustomId(CID.bookDate)
     .setPlaceholder('Pick a day')
-    .addOptions(dateOptions(slots, tz));
+    .addOptions(dateOptions(slots));
 
   await interaction.update({
-    content: `Times shown in **${tz}**. Pick a day:`,
+    content: `Times shown in **${TZ_LABEL}**. Pick a day:`,
     components: [selectRow(menu)],
   });
 }
@@ -163,11 +147,10 @@ export async function handleBookDateSelect(interaction: StringSelectMenuInteract
     return;
   }
 
-  const dateKey = interaction.values[0]!;
+  const day = interaction.values[0]!;
   const guild = await guildRepo.ensure(interaction.guildId);
-  const tz = await viewerTz(interaction.user.id, guild);
   const slots = await loadCommonSlots(interaction.guildId, draft.adminIds, guild.slotMinutes);
-  const options = timeOptions(slots, tz, dateKey);
+  const options = timeOptions(slots, day);
 
   if (options.length === 0) {
     await interaction.update({ content: 'No times remain on that day. Please run `/book` again.', components: [] });
@@ -180,7 +163,7 @@ export async function handleBookDateSelect(interaction: StringSelectMenuInteract
     .addOptions(options);
 
   await interaction.update({
-    content: `Pick a time on **${formatDateKeyLabel(dateKey, tz)}** (${tz}):`,
+    content: `Pick a time on **${formatDateLabel(day)}** (${TZ_LABEL}):`,
     components: [selectRow(menu)],
   });
 }
@@ -197,8 +180,6 @@ export async function handleBookTimeSelect(interaction: StringSelectMenuInteract
   const startMs = Number(interaction.values[0]);
   saveDraft(interaction.message.id, { ...draft, startMs });
 
-  const guild = await guildRepo.ensure(interaction.guildId);
-  const tz = await viewerTz(interaction.user.id, guild);
   const names = await displayNames(interaction.guild, draft.adminIds);
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -207,7 +188,7 @@ export async function handleBookTimeSelect(interaction: StringSelectMenuInteract
   );
 
   await interaction.update({
-    content: `Book **${names}** on **${formatSlotFull(new Date(startMs), tz)}** (${tz})?`,
+    content: `Book **${names}** on **${formatDateTime(new Date(startMs))}**?`,
     components: [row],
   });
 }
@@ -253,7 +234,6 @@ export async function handleBookMessageModal(interaction: ModalSubmitInteraction
   const note = raw.length > 0 ? raw : null;
 
   const guild = await guildRepo.ensure(interaction.guildId);
-  const tz = await viewerTz(interaction.user.id, guild);
   const startMs = draft.startMs;
 
   const slots = await loadCommonSlots(interaction.guildId, draft.adminIds, guild.slotMinutes);
@@ -289,7 +269,7 @@ export async function handleBookMessageModal(interaction: ModalSubmitInteraction
   const noteLine = note ? `\nYour message: “${note}”` : '';
   await interaction.update({
     content:
-      `Booked! Meeting with **${names}** on **${formatSlotFull(new Date(startMs), tz)}** (${tz}).${noteLine}\n` +
+      `Booked! Meeting with **${names}** on **${formatDateTime(new Date(startMs))}**.${noteLine}\n` +
       'See it any time with `/my-bookings`.',
     components: [],
   });
@@ -300,7 +280,6 @@ export async function handleBookMessageModal(interaction: ModalSubmitInteraction
     adminIds: draft.adminIds,
     organizerId: interaction.user.id,
     startUtc: new Date(startMs),
-    guild,
     note,
   });
 }

@@ -58,7 +58,6 @@ beforeEach(async () => {
   await prisma.meetingChannel.deleteMany();
   await prisma.booking.deleteMany();
   await prisma.availabilityRule.deleteMany();
-  await prisma.userPref.deleteMany();
   await prisma.guild.deleteMany();
   await prisma.guild.create({ data: { id: GUILD } });
 });

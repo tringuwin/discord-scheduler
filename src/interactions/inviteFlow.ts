@@ -8,11 +8,9 @@ import {
   type UserSelectMenuInteraction,
 } from 'discord.js';
 import { CID } from './customIds';
-import { formatSlotFull } from '../domain/slots';
+import { formatDateTime } from '../domain/appTime';
 import { bookingRepo } from '../repositories/bookingRepo';
-import { guildRepo } from '../repositories/guildRepo';
 import { meetingRepo } from '../repositories/meetingRepo';
-import { userPrefRepo } from '../repositories/userPrefRepo';
 import { grantChannelAccess } from '../scheduler/channels';
 
 const MAX_INVITES = 10;
@@ -60,7 +58,6 @@ export async function handleInviteSelect(interaction: UserSelectMenuInteraction)
     return;
   }
 
-  const guild = await guildRepo.ensure(booking.guildId);
   const invited: string[] = [];
   const skipped: string[] = [];
   const failed: string[] = [];
@@ -75,8 +72,6 @@ export async function handleInviteSelect(interaction: UserSelectMenuInteraction)
       continue;
     }
 
-    const pref = await userPrefRepo.get(id);
-    const tz = pref?.timezone ?? guild.defaultTz;
     const dmRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder().setCustomId(`${CID.inviteAcceptPrefix}${bookingId}`).setLabel('Accept').setStyle(ButtonStyle.Success),
       new ButtonBuilder().setCustomId(`${CID.inviteDeclinePrefix}${bookingId}`).setLabel('Decline').setStyle(ButtonStyle.Danger),
@@ -86,7 +81,7 @@ export async function handleInviteSelect(interaction: UserSelectMenuInteraction)
       .send({
         content:
           `${mention(booking.organizerId)} invited you to a meeting on ` +
-          `**${formatSlotFull(booking.startUtc, tz)}** (${tz}). A private voice channel opens at start time.`,
+          `**${formatDateTime(booking.startUtc)}**. A private voice channel opens at start time.`,
         components: [dmRow],
       })
       .then(() => true)

@@ -4,12 +4,10 @@ import { bookCommand } from './book';
 import { configCommand } from './config';
 import { myBookingsCommand } from './myBookings';
 import { myScheduleCommand } from './mySchedule';
-import { timezoneCommand } from './timezone';
 
 /** Every slash command the bot exposes. */
 export const commands: Command[] = [
   configCommand,
-  timezoneCommand,
   availabilityCommand,
   bookCommand,
   myBookingsCommand,

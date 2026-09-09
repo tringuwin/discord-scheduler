@@ -1,7 +1,6 @@
 import type { Client, VoiceState } from 'discord.js';
-import { formatSlotFull } from '../domain/slots';
+import { formatDateTime } from '../domain/appTime';
 import { meetingRepo, type BookingWithGuild } from '../repositories/meetingRepo';
-import { userPrefRepo } from '../repositories/userPrefRepo';
 import { deleteMeetingChannel, isChannelEmpty, openMeetingChannel } from './channels';
 import { cleanupByAge, isInReminderWindow, isMissed } from './decisions';
 
@@ -70,13 +69,11 @@ async function remindParticipants(client: Client, booking: BookingWithGuild, now
     if (participant.state !== 'accepted') continue;
     const user = await client.users.fetch(participant.userId).catch(() => null);
     if (!user) continue;
-    const pref = await userPrefRepo.get(participant.userId);
-    const tz = pref?.timezone ?? booking.guild.defaultTz;
     await user
       .send({
         content:
           `Reminder: your meeting starts in about ${minutesUntil} min — ` +
-          `${formatSlotFull(booking.startUtc, tz)} (${tz}). ` +
+          `${formatDateTime(booking.startUtc)}. ` +
           'A private voice channel will open when it starts.',
       })
       .catch(() => undefined);

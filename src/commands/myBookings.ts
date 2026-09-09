@@ -10,20 +10,14 @@ import {
 } from 'discord.js';
 import type { Command } from './types';
 import { CID } from '../interactions/customIds';
-import { formatSlotFull } from '../domain/slots';
+import { formatDateTime, TZ_LABEL } from '../domain/appTime';
 import { bookingRepo } from '../repositories/bookingRepo';
-import { guildRepo } from '../repositories/guildRepo';
-import { userPrefRepo } from '../repositories/userPrefRepo';
 
 /** How many upcoming bookings to show (one cancel button per action row; max 5). */
 const MAX_SHOWN = 5;
 
 /** Build the /my-bookings view for a user (shared by the command and cancel button). */
 async function renderMyBookings(guildId: string, userId: string): Promise<InteractionReplyOptions> {
-  const guild = await guildRepo.ensure(guildId);
-  const pref = await userPrefRepo.get(userId);
-  const tz = pref?.timezone ?? guild.defaultTz;
-
   const bookings = await bookingRepo.listUpcomingForUser(guildId, userId, new Date());
   if (bookings.length === 0) {
     return { content: 'You have no upcoming bookings. Use `/book` to schedule one.', components: [] };
@@ -37,13 +31,13 @@ async function renderMyBookings(guildId: string, userId: string): Promise<Intera
         .map((p) => `<@${p.userId}>`)
         .join(', ') || '_none_';
     const suffix = b.organizerId === userId ? '' : ` · booked by <@${b.organizerId}>`;
-    return `**${i + 1}.** ${formatSlotFull(b.startUtc, tz)} — with ${adminMentions}${suffix}`;
+    return `**${i + 1}.** ${formatDateTime(b.startUtc)} — with ${adminMentions}${suffix}`;
   });
 
   const embed = new EmbedBuilder()
     .setTitle('Your upcoming bookings')
     .setDescription(lines.join('\n'))
-    .setFooter({ text: `Times shown in ${tz}` });
+    .setFooter({ text: `Times shown in ${TZ_LABEL}` });
 
   // Buttons depend on the viewer's role: organizers can invite and cancel,
   // the meeting's admin can cancel, invitees get no controls here.

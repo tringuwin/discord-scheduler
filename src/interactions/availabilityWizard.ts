@@ -11,11 +11,10 @@ import {
   type StringSelectMenuInteraction,
 } from 'discord.js';
 import { CID } from './customIds';
+import { APP_TZ, TZ_LABEL } from '../domain/appTime';
 import { DAY_LABEL, DAY_OPTIONS, isValidDay } from '../domain/days';
-import { formatMinutes, parseHmm } from '../domain/time';
+import { formatMinutes, parseTimeInput } from '../domain/time';
 import { availabilityRepo } from '../repositories/availabilityRepo';
-import { guildRepo } from '../repositories/guildRepo';
-import { userPrefRepo } from '../repositories/userPrefRepo';
 
 /** Row 1 of the wizard: pick which day(s) the availability block applies to. */
 export function buildDaySelectRow(): ActionRowBuilder<StringSelectMenuBuilder> {
@@ -39,19 +38,19 @@ export async function handleDaySelect(interaction: StringSelectMenuInteraction):
 
   const start = new TextInputBuilder()
     .setCustomId('start')
-    .setLabel('Start time (24h, e.g. 09:00)')
+    .setLabel('Start time (e.g. 9:00 AM)')
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
-    .setMinLength(3)
-    .setMaxLength(5);
+    .setMinLength(1)
+    .setMaxLength(8);
 
   const end = new TextInputBuilder()
     .setCustomId('end')
-    .setLabel('End time (24h, e.g. 17:00)')
+    .setLabel('End time (e.g. 5:00 PM)')
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
-    .setMinLength(3)
-    .setMaxLength(5);
+    .setMinLength(1)
+    .setMaxLength(8);
 
   modal.addComponents(
     new ActionRowBuilder<TextInputBuilder>().addComponents(start),
@@ -78,12 +77,12 @@ export async function handleTimesModal(interaction: ModalSubmitInteraction): Pro
     return;
   }
 
-  const startMin = parseHmm(interaction.fields.getTextInputValue('start'));
-  const endMin = parseHmm(interaction.fields.getTextInputValue('end'));
+  const startMin = parseTimeInput(interaction.fields.getTextInputValue('start'));
+  const endMin = parseTimeInput(interaction.fields.getTextInputValue('end'));
 
   if (startMin === null || endMin === null) {
     await interaction.reply({
-      content: 'Times must be in 24-hour HH:MM format (e.g. `09:00`).',
+      content: 'Times must look like `9:00 AM` or `5:00 PM` (24-hour `17:00` also works).',
       flags: MessageFlags.Ephemeral,
     });
     return;
@@ -96,15 +95,11 @@ export async function handleTimesModal(interaction: ModalSubmitInteraction): Pro
     return;
   }
 
-  const guild = await guildRepo.ensure(interaction.guildId);
-  const pref = await userPrefRepo.get(interaction.user.id);
-  const tz = pref?.timezone ?? guild.defaultTz;
-
-  await availabilityRepo.addRules(interaction.guildId, interaction.user.id, days, startMin, endMin, tz);
+  await availabilityRepo.addRules(interaction.guildId, interaction.user.id, days, startMin, endMin, APP_TZ);
 
   const dayNames = days.map((d) => DAY_LABEL[d]).join(', ');
   await interaction.reply({
-    content: `Added availability **${formatMinutes(startMin)}–${formatMinutes(endMin)}** (${tz}) on **${dayNames}**.`,
+    content: `Added availability **${formatMinutes(startMin)}–${formatMinutes(endMin)}** (${TZ_LABEL}) on **${dayNames}**.`,
     flags: MessageFlags.Ephemeral,
   });
 }

@@ -16,7 +16,6 @@ model Guild {
   id              String  @id // Discord guild (server) id
   adminRoleId     String? // role whose members can set availability & be booked
   categoryId      String? // category to create meeting voice channels under
-  defaultTz       String  @default("UTC") // fallback timezone for the server
   slotMinutes     Int     @default(30) // booking slot length
   reminderMinutes Int     @default(10) // how long before start to remind
 
@@ -25,13 +24,6 @@ model Guild {
 
   availabilityRules AvailabilityRule[]
   bookings          Booking[]
-}
-
-/// A user's chosen IANA timezone (e.g. "America/New_York").
-model UserPref {
-  discordId String   @id
-  timezone  String
-  updatedAt DateTime @updatedAt
 }
 
 /// A recurring weekly availability block for one admin.

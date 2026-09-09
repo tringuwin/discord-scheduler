@@ -8,7 +8,7 @@ import {
 import type { Guild, Prisma } from '@prisma/client';
 import type { Command } from './types';
 import { guildRepo } from '../repositories/guildRepo';
-import { isValidTimezone, searchTimezones } from '../domain/timezone';
+import { TZ_LABEL } from '../domain/appTime';
 
 function configEmbed(guild: Guild): EmbedBuilder {
   return new EmbedBuilder()
@@ -16,7 +16,7 @@ function configEmbed(guild: Guild): EmbedBuilder {
     .addFields(
       { name: 'Admin role', value: guild.adminRoleId ? `<@&${guild.adminRoleId}>` : '_not set_', inline: true },
       { name: 'Meeting category', value: guild.categoryId ? `<#${guild.categoryId}>` : '_not set_', inline: true },
-      { name: 'Default timezone', value: guild.defaultTz, inline: true },
+      { name: 'Timezone', value: TZ_LABEL, inline: true },
       { name: 'Slot length', value: `${guild.slotMinutes} min`, inline: true },
       { name: 'Reminder lead', value: `${guild.reminderMinutes} min`, inline: true },
     );
@@ -40,9 +40,6 @@ export const configCommand: Command = {
             .setName('category')
             .setDescription('Category to create meeting voice channels under')
             .addChannelTypes(ChannelType.GuildCategory),
-        )
-        .addStringOption((o) =>
-          o.setName('default-timezone').setDescription('Fallback timezone for the server').setAutocomplete(true),
         )
         .addIntegerOption((o) =>
           o
@@ -80,18 +77,6 @@ export const configCommand: Command = {
     const category = interaction.options.getChannel('category');
     if (category) data.categoryId = category.id;
 
-    const tz = interaction.options.getString('default-timezone');
-    if (tz) {
-      if (!isValidTimezone(tz)) {
-        await interaction.reply({
-          content: `\`${tz}\` is not a valid IANA timezone.`,
-          flags: MessageFlags.Ephemeral,
-        });
-        return;
-      }
-      data.defaultTz = tz;
-    }
-
     const slot = interaction.options.getInteger('slot-minutes');
     if (slot !== null) data.slotMinutes = slot;
 
@@ -112,10 +97,5 @@ export const configCommand: Command = {
       embeds: [configEmbed(updated)],
       flags: MessageFlags.Ephemeral,
     });
-  },
-
-  async autocomplete(interaction) {
-    const focused = interaction.options.getFocused();
-    await interaction.respond(searchTimezones(focused).map((tz) => ({ name: tz, value: tz })));
   },
 };

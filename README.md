@@ -8,7 +8,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full design.
 
 ## Status
 
-- **Phase 1:** project skeleton, database schema, `/config`, `/timezone`, and
+- **Phase 1:** project skeleton, database schema, `/config`, and
   admin `/availability` with a click-based day → time-range wizard. ✅
 - **Phase 2:** `/book` (admin → day → time wizard) with atomic slot reservation
   (no double-booking), and `/my-bookings` with cancel. ✅
@@ -71,18 +71,20 @@ delete voice channels, so grant these permissions: **View Channels**,
 
 | Command | Who | What |
 |---|---|---|
-| `/config view` · `/config set` | Server managers | Set admin role, meeting category, default timezone, slot length, reminder lead |
-| `/timezone set` · `/timezone view` | Everyone | Set/see your IANA timezone (used for all scheduling) |
+| `/config view` · `/config set` | Server managers | Set admin role, meeting category, slot length, reminder lead |
 | `/availability set` · `view` · `clear` | Admin role | Manage your weekly bookable availability |
-| `/book` | Everyone | Book a meeting: pick one or more admins → day → time (shown in your timezone) → add an optional message → confirm |
+| `/book` | Everyone | Book a meeting: pick one or more admins → day → time → add an optional message → confirm |
 | `/my-bookings` | Everyone | List your upcoming meetings; organizers get **Invite** + **Cancel**, the meeting admin gets **Cancel** |
 | `/my-schedule` | Admins | See who has booked you and when — every upcoming booking, with the organizer and any guests |
 
-Whenever someone books an admin, that admin also gets a DM naming who booked
-them, the meeting time (in the admin's own timezone), and the booker's optional
-message.
+All times are in **Pacific Time** (PST/PDT, DST-aware) and shown in 12-hour
+AM/PM format. There is no per-user or per-server timezone setting.
 
-`/availability set` opens a menu: pick the day(s), then enter a start/end time.
+Whenever someone books an admin, that admin also gets a DM naming who booked
+them, the meeting time, and the booker's optional message.
+
+`/availability set` opens a menu: pick the day(s), then enter a start/end time
+(e.g. `9:00 AM` – `5:00 PM`; 24-hour `17:00` is also accepted).
 `/book` walks admin → day → time and reserves the slot atomically, so the same
 slot can never be double-booked. On the confirmation step the booker can add a
 short message (up to 300 characters) that reaches the admin in the booking DM
@@ -98,7 +100,7 @@ src/
   db/client.ts          shared Prisma client
   commands/             one file per slash command + registry
   interactions/         component/modal routing + wizards
-  domain/               pure, testable logic (time, timezone, days, permissions)
+  domain/               pure, testable logic (time, Pacific formatting, slots, days)
   repositories/         data access (Repository pattern)
 prisma/schema.prisma    database schema
 ```
@@ -113,8 +115,8 @@ npm run db:studio   # browse the database in Prisma Studio
 
 ## Testing
 
-- **Unit** — pure logic: timezone/DST-aware slot computation, availability
-  intersection, and the scheduler's timing rules.
+- **Unit** — pure logic: DST-aware slot computation, availability
+  intersection, Pacific AM/PM formatting, and the scheduler's timing rules.
 - **Integration** — the real repositories against a throwaway SQLite database
   (`src/integration/*.int.test.ts`): the booking lifecycle end-to-end —
   reservation, double-book rejection, multi-admin all-or-nothing rollback,

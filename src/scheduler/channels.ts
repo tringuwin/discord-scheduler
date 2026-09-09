@@ -1,10 +1,11 @@
 import { ChannelType, PermissionFlagsBits, type Client } from 'discord.js';
 import { DateTime } from 'luxon';
+import { APP_TZ } from '../domain/appTime';
 import type { BookingWithParticipants } from '../repositories/meetingRepo';
 import { guildRepo } from '../repositories/guildRepo';
 
-function channelName(startUtc: Date, tz: string): string {
-  return `Meeting ${DateTime.fromJSDate(startUtc).setZone(tz).toFormat('LLL d HH:mm')}`;
+function channelName(startUtc: Date): string {
+  return `Meeting ${DateTime.fromJSDate(startUtc).setZone(APP_TZ).toFormat('LLL d h:mm a')}`;
 }
 
 /**
@@ -29,7 +30,7 @@ export async function openMeetingChannel(client: Client, booking: BookingWithPar
 
   const channel = await guild.channels
     .create({
-      name: channelName(booking.startUtc, config?.defaultTz ?? 'UTC'),
+      name: channelName(booking.startUtc),
       type: ChannelType.GuildVoice,
       parent: config?.categoryId ?? undefined,
       permissionOverwrites,

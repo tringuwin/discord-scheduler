@@ -1,31 +1,19 @@
 import type { Client } from 'discord.js';
-import type { Guild } from '@prisma/client';
-import { formatSlotFull } from '../domain/slots';
-import { userPrefRepo } from '../repositories/userPrefRepo';
+import { formatDateTime } from '../domain/appTime';
 
 export interface AdminBookingNotice {
   adminIds: string[];
   organizerId: string;
   startUtc: Date;
-  guild: Guild;
   note?: string | null;
 }
 
 /**
  * The DM an admin receives when someone books them: who booked them, when
- * (rendered in the given timezone), and their optional message. Pure so it can
- * be unit-tested.
+ * (in Pacific time), and their optional message. Pure so it can be unit-tested.
  */
-export function buildBookingNotice(
-  organizerId: string,
-  startUtc: Date,
-  tz: string,
-  note?: string | null,
-): string {
-  const lines = [
-    `📅 <@${organizerId}> just booked a meeting with you for ` +
-      `**${formatSlotFull(startUtc, tz)}** (${tz}).`,
-  ];
+export function buildBookingNotice(organizerId: string, startUtc: Date, note?: string | null): string {
+  const lines = [`📅 <@${organizerId}> just booked a meeting with you for **${formatDateTime(startUtc)}**.`];
   if (note) lines.push(`💬 ${note}`);
   lines.push('See everyone who has booked you with `/my-schedule`.');
   return lines.join('\n');
@@ -38,13 +26,11 @@ export function buildBookingNotice(
  * the booking, is skipped since they already saw the confirmation.
  */
 export async function notifyAdminsOfBooking(client: Client, notice: AdminBookingNotice): Promise<void> {
-  const { adminIds, organizerId, startUtc, guild, note } = notice;
+  const { adminIds, organizerId, startUtc, note } = notice;
   for (const adminId of adminIds) {
     if (adminId === organizerId) continue;
     const user = await client.users.fetch(adminId).catch(() => null);
     if (!user) continue;
-    const pref = await userPrefRepo.get(adminId);
-    const tz = pref?.timezone ?? guild.defaultTz;
-    await user.send({ content: buildBookingNotice(organizerId, startUtc, tz, note) }).catch(() => undefined);
+    await user.send({ content: buildBookingNotice(organizerId, startUtc, note) }).catch(() => undefined);
   }
 }

@@ -1,9 +1,7 @@
 import { EmbedBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
 import type { Command } from './types';
-import { formatSlotFull } from '../domain/slots';
+import { formatDateTime, TZ_LABEL } from '../domain/appTime';
 import { bookingRepo } from '../repositories/bookingRepo';
-import { guildRepo } from '../repositories/guildRepo';
-import { userPrefRepo } from '../repositories/userPrefRepo';
 
 /** How many upcoming bookings to list (Discord embeds get unwieldy past this). */
 const MAX_SHOWN = 10;
@@ -18,10 +16,6 @@ export const myScheduleCommand: Command = {
       await interaction.reply({ content: 'Use this command in a server.', flags: MessageFlags.Ephemeral });
       return;
     }
-
-    const guild = await guildRepo.ensure(interaction.guildId);
-    const pref = await userPrefRepo.get(interaction.user.id);
-    const tz = pref?.timezone ?? guild.defaultTz;
 
     const bookings = await bookingRepo.listUpcomingForAdmin(interaction.guildId, interaction.user.id, new Date());
     if (bookings.length === 0) {
@@ -40,13 +34,13 @@ export const myScheduleCommand: Command = {
         .map((p) => `<@${p.userId}>`);
       const withGuests = guests.length ? ` (with ${guests.join(', ')})` : '';
       const noteLine = b.note ? `\n> 💬 ${b.note}` : '';
-      return `**${i + 1}.** ${formatSlotFull(b.startUtc, tz)} — booked by <@${b.organizerId}>${withGuests}${noteLine}`;
+      return `**${i + 1}.** ${formatDateTime(b.startUtc)} — booked by <@${b.organizerId}>${withGuests}${noteLine}`;
     });
 
     const embed = new EmbedBuilder()
       .setTitle('Upcoming bookings with you')
       .setDescription(lines.join('\n'))
-      .setFooter({ text: `Times shown in ${tz}` });
+      .setFooter({ text: `Times shown in ${TZ_LABEL}` });
 
     const note = bookings.length > MAX_SHOWN ? `_Showing the next ${MAX_SHOWN} of ${bookings.length}._` : undefined;
     await interaction.reply({ content: note, embeds: [embed], flags: MessageFlags.Ephemeral });

@@ -101,23 +101,3 @@ export function intersectSlots(slotSets: Slot[][]): Slot[] {
   }
   return [...current.values()].sort((a, b) => a.startUtc.getTime() - b.startUtc.getTime());
 }
-
-/** The calendar-date key ("yyyy-LL-dd") a slot falls on, in the viewer's tz. */
-export function slotDateKey(startUtc: Date, tz: string): string {
-  return DateTime.fromJSDate(startUtc).setZone(tz).toFormat('yyyy-LL-dd');
-}
-
-/** A friendly label for a date key, e.g. "Mon, Sep 8". */
-export function formatDateKeyLabel(dateKey: string, tz: string): string {
-  return DateTime.fromFormat(dateKey, 'yyyy-LL-dd', { zone: tz }).toFormat('ccc, LLL d');
-}
-
-/** A slot's start time-of-day in the viewer's tz, e.g. "14:30". */
-export function formatSlotTime(startUtc: Date, tz: string): string {
-  return DateTime.fromJSDate(startUtc).setZone(tz).toFormat('HH:mm');
-}
-
-/** A full human label for a slot start, e.g. "Mon, Sep 8 2026 • 14:30". */
-export function formatSlotFull(startUtc: Date, tz: string): string {
-  return DateTime.fromJSDate(startUtc).setZone(tz).toFormat("ccc, LLL d yyyy '•' HH:mm");
-}

@@ -59,7 +59,7 @@ export const availabilityCommand: Command = {
         return;
       }
       const lines = rules.map(
-        (r) => `**${DAY_LABEL[r.dayOfWeek]}** ${formatMinutes(r.startMin)}–${formatMinutes(r.endMin)} _(${r.tz})_`,
+        (r) => `**${DAY_LABEL[r.dayOfWeek]}** ${formatMinutes(r.startMin)}–${formatMinutes(r.endMin)}`,
       );
       await interaction.reply({
         embeds: [new EmbedBuilder().setTitle('Your availability').setDescription(lines.join('\n'))],

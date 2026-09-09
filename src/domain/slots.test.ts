@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DateTime } from 'luxon';
-import { computeSlots, formatSlotTime, intersectSlots, slotDateKey, type Rule, type Slot } from './slots';
+import { computeSlots, intersectSlots, type Rule, type Slot } from './slots';
 
 // Anchor "now" on a Sunday and use horizonDays: 1 so exactly one Monday (the
 // next day) falls in range — in every timezone under test. This keeps slot
@@ -8,6 +8,11 @@ import { computeSlots, formatSlotTime, intersectSlots, slotDateKey, type Rule, t
 const SUN_JAN = DateTime.fromISO('2026-01-04T12:00:00', { zone: 'utc' }); // → Mon 2026-01-05
 const SUN_JUL = DateTime.fromISO('2026-07-05T12:00:00', { zone: 'utc' }); // → Mon 2026-07-06
 const MONDAY_JAN = DateTime.fromISO('2026-01-05T00:00:00', { zone: 'utc' });
+
+/** The slot start instants as ISO strings — the zone-independent source of truth. */
+function startsIso(slots: Slot[]): string[] {
+  return slots.map((s) => s.startUtc.toISOString());
+}
 
 function rule(partial: Partial<Rule>): Rule {
   return { dayOfWeek: 1, startMin: 9 * 60, endMin: 10 * 60, tz: 'UTC', ...partial };
@@ -22,9 +27,7 @@ describe('computeSlots', () => {
       now: SUN_JAN,
       horizonDays: 1,
     });
-    expect(slots).toHaveLength(2);
-    expect(formatSlotTime(slots[0]!.startUtc, 'UTC')).toBe('09:00');
-    expect(formatSlotTime(slots[1]!.startUtc, 'UTC')).toBe('09:30');
+    expect(startsIso(slots)).toEqual(['2026-01-05T09:00:00.000Z', '2026-01-05T09:30:00.000Z']);
     expect(slots[0]!.endUtc.getTime() - slots[0]!.startUtc.getTime()).toBe(30 * 60_000);
   });
 
@@ -37,8 +40,7 @@ describe('computeSlots', () => {
       horizonDays: 1,
     });
     // 09:00 fits (ends 09:30); 09:30 would end 10:00 > 09:45 → excluded.
-    expect(slots).toHaveLength(1);
-    expect(formatSlotTime(slots[0]!.startUtc, 'UTC')).toBe('09:00');
+    expect(startsIso(slots)).toEqual(['2026-01-05T09:00:00.000Z']);
   });
 
   it('removes already-reserved instants', () => {
@@ -58,8 +60,7 @@ describe('computeSlots', () => {
       now: MONDAY_JAN.set({ hour: 9, minute: 15 }),
       horizonDays: 0,
     });
-    expect(slots).toHaveLength(1);
-    expect(formatSlotTime(slots[0]!.startUtc, 'UTC')).toBe('09:30');
+    expect(startsIso(slots)).toEqual(['2026-01-05T09:30:00.000Z']);
   });
 
   it('converts wall-clock availability to the correct UTC instant (EST, winter)', () => {
@@ -70,10 +71,8 @@ describe('computeSlots', () => {
       now: SUN_JAN,
       horizonDays: 1,
     });
-    expect(slots).toHaveLength(1);
-    // 09:00 EST (UTC-5) == 14:00 UTC, and reads back as 09:00 in New York.
-    expect(formatSlotTime(slots[0]!.startUtc, 'UTC')).toBe('14:00');
-    expect(formatSlotTime(slots[0]!.startUtc, 'America/New_York')).toBe('09:00');
+    // 09:00 EST (UTC-5) == 14:00 UTC.
+    expect(startsIso(slots)).toEqual(['2026-01-05T14:00:00.000Z']);
   });
 
   it('honours DST (EDT, summer): same wall-clock, different UTC offset', () => {
@@ -84,9 +83,8 @@ describe('computeSlots', () => {
       now: SUN_JUL,
       horizonDays: 1,
     });
-    expect(slots).toHaveLength(1);
     // 09:00 EDT (UTC-4) == 13:00 UTC.
-    expect(formatSlotTime(slots[0]!.startUtc, 'UTC')).toBe('13:00');
+    expect(startsIso(slots)).toEqual(['2026-07-06T13:00:00.000Z']);
   });
 
   it('merges overlapping rules without duplicate instants', () => {
@@ -100,8 +98,11 @@ describe('computeSlots', () => {
       now: SUN_JAN,
       horizonDays: 1,
     });
-    const starts = slots.map((s) => formatSlotTime(s.startUtc, 'UTC'));
-    expect(starts).toEqual(['09:00', '09:30', '10:00']);
+    expect(startsIso(slots)).toEqual([
+      '2026-01-05T09:00:00.000Z',
+      '2026-01-05T09:30:00.000Z',
+      '2026-01-05T10:00:00.000Z',
+    ]);
   });
 });
 
@@ -125,14 +126,5 @@ describe('intersectSlots', () => {
 
   it('is empty for no sets', () => {
     expect(intersectSlots([])).toHaveLength(0);
-  });
-});
-
-describe('slotDateKey', () => {
-  it('groups by calendar date in the viewer timezone', () => {
-    // 03:00 UTC on Jan 6 is still Jan 5 in New York.
-    const instant = DateTime.fromISO('2026-01-06T03:00:00Z').toJSDate();
-    expect(slotDateKey(instant, 'UTC')).toBe('2026-01-06');
-    expect(slotDateKey(instant, 'America/New_York')).toBe('2026-01-05');
   });
 });
