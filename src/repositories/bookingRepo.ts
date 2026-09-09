@@ -104,6 +104,24 @@ export const bookingRepo = {
     return parts.map((p) => p.booking);
   },
 
+  /** Confirmed upcoming bookings where the user is the booked admin. */
+  async listUpcomingForAdmin(
+    guildId: string,
+    adminId: string,
+    now: Date,
+  ): Promise<BookingWithParticipants[]> {
+    const parts = await prisma.participant.findMany({
+      where: {
+        userId: adminId,
+        role: 'admin',
+        booking: { guildId, status: 'confirmed', startUtc: { gte: now } },
+      },
+      include: { booking: { include: { participants: true } } },
+      orderBy: { booking: { startUtc: 'asc' } },
+    });
+    return parts.map((p) => p.booking);
+  },
+
   findById(bookingId: string): Promise<Booking | null> {
     return prisma.booking.findUnique({ where: { id: bookingId } });
   },

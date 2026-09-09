@@ -175,6 +175,51 @@ describe('multi-admin booking', () => {
   });
 });
 
+describe('admin schedule view', () => {
+  it('lists bookings where the user is the booked admin, and not ones they organized', async () => {
+    await availabilityRepo.addRules(GUILD, 'a1', ALL_DAYS, 9 * 60, 17 * 60, 'UTC');
+    const target = slotsFor(await availabilityRepo.listForAdmin(GUILD, 'a1'))[0]!;
+    const res = await bookingRepo.createConfirmed({
+      guildId: GUILD,
+      organizerId: 'u1',
+      adminIds: ['a1'],
+      startUtc: target.startUtc,
+      endUtc: target.endUtc,
+    });
+    expect(res.ok).toBe(true);
+
+    // The booked admin sees the booking and who organized it.
+    const forAdmin = await bookingRepo.listUpcomingForAdmin(GUILD, 'a1', new Date());
+    expect(forAdmin.length).toBe(1);
+    expect(forAdmin[0]!.organizerId).toBe('u1');
+
+    // The organizer is not an admin of anything, so their schedule is empty.
+    expect((await bookingRepo.listUpcomingForAdmin(GUILD, 'u1', new Date())).length).toBe(0);
+  });
+
+  it('drops cancelled and past bookings from the admin schedule', async () => {
+    await availabilityRepo.addRules(GUILD, 'a1', ALL_DAYS, 9 * 60, 17 * 60, 'UTC');
+    const target = slotsFor(await availabilityRepo.listForAdmin(GUILD, 'a1'))[0]!;
+    const res = await bookingRepo.createConfirmed({
+      guildId: GUILD,
+      organizerId: 'u1',
+      adminIds: ['a1'],
+      startUtc: target.startUtc,
+      endUtc: target.endUtc,
+    });
+    expect(res.ok).toBe(true);
+    expect((await bookingRepo.listUpcomingForAdmin(GUILD, 'a1', new Date())).length).toBe(1);
+
+    // A `now` after the slot start treats it as past.
+    const afterStart = new Date(target.startUtc.getTime() + 60_000);
+    expect((await bookingRepo.listUpcomingForAdmin(GUILD, 'a1', afterStart)).length).toBe(0);
+
+    // Cancelling removes it from the upcoming schedule too.
+    if (res.ok) await bookingRepo.cancel(res.booking.id, 'u1');
+    expect((await bookingRepo.listUpcomingForAdmin(GUILD, 'a1', new Date())).length).toBe(0);
+  });
+});
+
 describe('invite lifecycle', () => {
   it('shows a non-declined invitee and hides a declined one', async () => {
     await availabilityRepo.addRules(GUILD, 'a1', ALL_DAYS, 9 * 60, 17 * 60, 'UTC');

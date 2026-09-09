@@ -3,6 +3,7 @@ import { availabilityCommand } from './availability';
 import { bookCommand } from './book';
 import { configCommand } from './config';
 import { myBookingsCommand } from './myBookings';
+import { myScheduleCommand } from './mySchedule';
 import { timezoneCommand } from './timezone';
 
 /** Every slash command the bot exposes. */
@@ -12,6 +13,7 @@ export const commands: Command[] = [
   availabilityCommand,
   bookCommand,
   myBookingsCommand,
+  myScheduleCommand,
 ];
 
 /** Name -> command lookup for routing interactions. */
