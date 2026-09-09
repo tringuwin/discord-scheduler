@@ -2,10 +2,14 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  ModalBuilder,
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
+  TextInputBuilder,
+  TextInputStyle,
   type ButtonInteraction,
   type Guild as DiscordGuild,
+  type ModalSubmitInteraction,
   type StringSelectMenuInteraction,
 } from 'discord.js';
 import type { Guild } from '@prisma/client';
@@ -29,6 +33,7 @@ import { userPrefRepo } from '../repositories/userPrefRepo';
 import { notifyAdminsOfBooking } from './bookingNotifications';
 
 const MAX_OPTIONS = 25;
+const MAX_NOTE_LEN = 300; // keep the "short message" short (and well under Discord's limit)
 const EXPIRED = 'This booking session expired. Please run `/book` again.';
 
 async function viewerTz(userId: string, guild: Guild): Promise<string> {
@@ -207,7 +212,7 @@ export async function handleBookTimeSelect(interaction: StringSelectMenuInteract
   });
 }
 
-/** Step 4: confirm — reserve every admin's slot atomically. */
+/** Step 4: confirm — open a modal for an optional message before committing. */
 export async function handleBookConfirm(interaction: ButtonInteraction): Promise<void> {
   if (!interaction.inCachedGuild()) return;
   const draft = getDraft(interaction.message.id);
@@ -216,13 +221,44 @@ export async function handleBookConfirm(interaction: ButtonInteraction): Promise
     return;
   }
 
+  const input = new TextInputBuilder()
+    .setCustomId(CID.bookMessageInput)
+    .setLabel('Add a message (optional)')
+    .setStyle(TextInputStyle.Paragraph)
+    .setMaxLength(MAX_NOTE_LEN)
+    .setRequired(false)
+    .setPlaceholder('Anything the admin should know? e.g. what you’d like to discuss');
+
+  const modal = new ModalBuilder()
+    .setCustomId(`${CID.bookMessagePrefix}${interaction.message.id}`)
+    .setTitle('Confirm booking')
+    .addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(input));
+
+  await interaction.showModal(modal);
+}
+
+/** Step 4 (submit): the modal came back — reserve every admin's slot atomically. */
+export async function handleBookMessageModal(interaction: ModalSubmitInteraction): Promise<void> {
+  if (!interaction.isFromMessage()) return; // must be able to edit the wizard message
+  if (!interaction.inCachedGuild()) return;
+
+  const key = interaction.customId.slice(CID.bookMessagePrefix.length);
+  const draft = getDraft(key);
+  if (!draft || draft.startMs === undefined) {
+    await interaction.update({ content: EXPIRED, components: [] });
+    return;
+  }
+
+  const raw = interaction.fields.getTextInputValue(CID.bookMessageInput).trim();
+  const note = raw.length > 0 ? raw : null;
+
   const guild = await guildRepo.ensure(interaction.guildId);
   const tz = await viewerTz(interaction.user.id, guild);
   const startMs = draft.startMs;
 
   const slots = await loadCommonSlots(interaction.guildId, draft.adminIds, guild.slotMinutes);
   if (!slots.some((slot) => slot.startUtc.getTime() === startMs)) {
-    clearDraft(interaction.message.id);
+    clearDraft(key);
     await interaction.update({
       content: 'That slot is no longer available for everyone. Please run `/book` again.',
       components: [],
@@ -236,9 +272,10 @@ export async function handleBookConfirm(interaction: ButtonInteraction): Promise
     adminIds: draft.adminIds,
     startUtc: new Date(startMs),
     endUtc: new Date(startMs + guild.slotMinutes * 60_000),
+    note,
   });
 
-  clearDraft(interaction.message.id);
+  clearDraft(key);
 
   if (!result.ok) {
     await interaction.update({
@@ -249,20 +286,22 @@ export async function handleBookConfirm(interaction: ButtonInteraction): Promise
   }
 
   const names = await displayNames(interaction.guild, draft.adminIds);
+  const noteLine = note ? `\nYour message: “${note}”` : '';
   await interaction.update({
     content:
-      `Booked! Meeting with **${names}** on **${formatSlotFull(new Date(startMs), tz)}** (${tz}).\n` +
+      `Booked! Meeting with **${names}** on **${formatSlotFull(new Date(startMs), tz)}** (${tz}).${noteLine}\n` +
       'See it any time with `/my-bookings`.',
     components: [],
   });
 
-  // Let each booked admin know who booked them and when (best-effort; done
-  // after the reply so slow DMs can't miss the interaction response window).
+  // Let each booked admin know who booked them, when, and their message
+  // (best-effort; done after the reply so slow DMs can't miss the response window).
   await notifyAdminsOfBooking(interaction.client, {
     adminIds: draft.adminIds,
     organizerId: interaction.user.id,
     startUtc: new Date(startMs),
     guild,
+    note,
   });
 }
 

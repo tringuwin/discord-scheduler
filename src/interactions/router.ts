@@ -12,6 +12,7 @@ import {
   handleBookAdminSelect,
   handleBookConfirm,
   handleBookDateSelect,
+  handleBookMessageModal,
   handleBookTimeSelect,
 } from './bookingWizard';
 import { handleMyBookingCancel } from '../commands/myBookings';
@@ -57,6 +58,7 @@ export async function routeInteraction(interaction: Interaction): Promise<void> 
 
     if (interaction.isModalSubmit()) {
       if (interaction.customId.startsWith(CID.availTimesPrefix)) await handleTimesModal(interaction);
+      else if (interaction.customId.startsWith(CID.bookMessagePrefix)) await handleBookMessageModal(interaction);
       return;
     }
 

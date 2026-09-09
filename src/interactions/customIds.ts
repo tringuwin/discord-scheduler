@@ -18,6 +18,10 @@ export const CID = {
   bookTime: 'book:time',
   bookConfirm: 'book:confirm',
   bookAbort: 'book:abort',
+  /** Modal collecting the optional message; suffixed with the wizard message id. */
+  bookMessagePrefix: 'book:msg:', // + <messageId>
+  /** Text-input field id inside that modal. */
+  bookMessageInput: 'book:note',
 
   /** Cancel button on a /my-bookings entry. */
   myBookingCancelPrefix: 'mybook:cancel:', // + <bookingId>

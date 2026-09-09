@@ -12,6 +12,7 @@ export interface CreateBookingInput {
   adminIds: string[];
   startUtc: Date;
   endUtc: Date;
+  note?: string | null;
 }
 
 export type CreateBookingResult =
@@ -57,6 +58,7 @@ export const bookingRepo = {
             guildId: input.guildId,
             organizerId: input.organizerId,
             status: 'confirmed',
+            note: input.note ?? null,
             startUtc: input.startUtc,
             endUtc: input.endUtc,
           },

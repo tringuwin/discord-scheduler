@@ -20,4 +20,14 @@ describe('buildBookingNotice', () => {
     expect(ny).not.toEqual(utc);
     expect(ny).toContain('10:00');
   });
+
+  it('includes the organizer message when present', () => {
+    const notice = buildBookingNotice('1', start, 'UTC', 'Discuss the Q3 roadmap');
+    expect(notice).toContain('Discuss the Q3 roadmap');
+  });
+
+  it('omits the message line when there is no message', () => {
+    expect(buildBookingNotice('1', start, 'UTC', null)).not.toContain('💬');
+    expect(buildBookingNotice('1', start, 'UTC')).not.toContain('💬');
+  });
 });

@@ -175,6 +175,40 @@ describe('multi-admin booking', () => {
   });
 });
 
+describe('booking message', () => {
+  it('persists the organizer note and returns it in the admin schedule', async () => {
+    await availabilityRepo.addRules(GUILD, 'a1', ALL_DAYS, 9 * 60, 17 * 60, 'UTC');
+    const target = slotsFor(await availabilityRepo.listForAdmin(GUILD, 'a1'))[0]!;
+    const res = await bookingRepo.createConfirmed({
+      guildId: GUILD,
+      organizerId: 'u1',
+      adminIds: ['a1'],
+      startUtc: target.startUtc,
+      endUtc: target.endUtc,
+      note: 'Need help with onboarding',
+    });
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(res.booking.note).toBe('Need help with onboarding');
+
+    const forAdmin = await bookingRepo.listUpcomingForAdmin(GUILD, 'a1', new Date());
+    expect(forAdmin[0]!.note).toBe('Need help with onboarding');
+  });
+
+  it('stores null when no note is given', async () => {
+    await availabilityRepo.addRules(GUILD, 'a1', ALL_DAYS, 9 * 60, 17 * 60, 'UTC');
+    const target = slotsFor(await availabilityRepo.listForAdmin(GUILD, 'a1'))[0]!;
+    const res = await bookingRepo.createConfirmed({
+      guildId: GUILD,
+      organizerId: 'u1',
+      adminIds: ['a1'],
+      startUtc: target.startUtc,
+      endUtc: target.endUtc,
+    });
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(res.booking.note).toBeNull();
+  });
+});
+
 describe('admin schedule view', () => {
   it('lists bookings where the user is the booked admin, and not ones they organized', async () => {
     await availabilityRepo.addRules(GUILD, 'a1', ALL_DAYS, 9 * 60, 17 * 60, 'UTC');

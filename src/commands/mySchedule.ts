@@ -39,7 +39,8 @@ export const myScheduleCommand: Command = {
         .filter((p) => p.userId !== b.organizerId && p.role !== 'admin' && p.state !== 'declined')
         .map((p) => `<@${p.userId}>`);
       const withGuests = guests.length ? ` (with ${guests.join(', ')})` : '';
-      return `**${i + 1}.** ${formatSlotFull(b.startUtc, tz)} — booked by <@${b.organizerId}>${withGuests}`;
+      const noteLine = b.note ? `\n> 💬 ${b.note}` : '';
+      return `**${i + 1}.** ${formatSlotFull(b.startUtc, tz)} — booked by <@${b.organizerId}>${withGuests}${noteLine}`;
     });
 
     const embed = new EmbedBuilder()

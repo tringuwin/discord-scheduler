@@ -8,18 +8,27 @@ export interface AdminBookingNotice {
   organizerId: string;
   startUtc: Date;
   guild: Guild;
+  note?: string | null;
 }
 
 /**
- * The DM an admin receives when someone books them: who booked them and when,
- * with the time rendered in the given timezone. Pure so it can be unit-tested.
+ * The DM an admin receives when someone books them: who booked them, when
+ * (rendered in the given timezone), and their optional message. Pure so it can
+ * be unit-tested.
  */
-export function buildBookingNotice(organizerId: string, startUtc: Date, tz: string): string {
-  return (
+export function buildBookingNotice(
+  organizerId: string,
+  startUtc: Date,
+  tz: string,
+  note?: string | null,
+): string {
+  const lines = [
     `📅 <@${organizerId}> just booked a meeting with you for ` +
-    `**${formatSlotFull(startUtc, tz)}** (${tz}).\n` +
-    'See everyone who has booked you with `/my-schedule`.'
-  );
+      `**${formatSlotFull(startUtc, tz)}** (${tz}).`,
+  ];
+  if (note) lines.push(`💬 ${note}`);
+  lines.push('See everyone who has booked you with `/my-schedule`.');
+  return lines.join('\n');
 }
 
 /**
@@ -29,13 +38,13 @@ export function buildBookingNotice(organizerId: string, startUtc: Date, tz: stri
  * the booking, is skipped since they already saw the confirmation.
  */
 export async function notifyAdminsOfBooking(client: Client, notice: AdminBookingNotice): Promise<void> {
-  const { adminIds, organizerId, startUtc, guild } = notice;
+  const { adminIds, organizerId, startUtc, guild, note } = notice;
   for (const adminId of adminIds) {
     if (adminId === organizerId) continue;
     const user = await client.users.fetch(adminId).catch(() => null);
     if (!user) continue;
     const pref = await userPrefRepo.get(adminId);
     const tz = pref?.timezone ?? guild.defaultTz;
-    await user.send({ content: buildBookingNotice(organizerId, startUtc, tz) }).catch(() => undefined);
+    await user.send({ content: buildBookingNotice(organizerId, startUtc, tz, note) }).catch(() => undefined);
   }
 }

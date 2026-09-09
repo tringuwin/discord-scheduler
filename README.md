@@ -74,16 +74,19 @@ delete voice channels, so grant these permissions: **View Channels**,
 | `/config view` · `/config set` | Server managers | Set admin role, meeting category, default timezone, slot length, reminder lead |
 | `/timezone set` · `/timezone view` | Everyone | Set/see your IANA timezone (used for all scheduling) |
 | `/availability set` · `view` · `clear` | Admin role | Manage your weekly bookable availability |
-| `/book` | Everyone | Book a meeting: pick one or more admins → day → time (shown in your timezone) → confirm |
+| `/book` | Everyone | Book a meeting: pick one or more admins → day → time (shown in your timezone) → add an optional message → confirm |
 | `/my-bookings` | Everyone | List your upcoming meetings; organizers get **Invite** + **Cancel**, the meeting admin gets **Cancel** |
 | `/my-schedule` | Admins | See who has booked you and when — every upcoming booking, with the organizer and any guests |
 
 Whenever someone books an admin, that admin also gets a DM naming who booked
-them and the meeting time (in the admin's own timezone).
+them, the meeting time (in the admin's own timezone), and the booker's optional
+message.
 
 `/availability set` opens a menu: pick the day(s), then enter a start/end time.
 `/book` walks admin → day → time and reserves the slot atomically, so the same
-slot can never be double-booked.
+slot can never be double-booked. On the confirmation step the booker can add a
+short message (up to 300 characters) that reaches the admin in the booking DM
+and in `/my-schedule`.
 
 ## Project layout
 

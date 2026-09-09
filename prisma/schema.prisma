@@ -58,6 +58,7 @@ model Booking {
   guildId     String
   organizerId String // user who booked
   status      String   @default("confirmed") // pending|confirmed|cancelled|done
+  note        String? // optional short message from the organizer
   startUtc    DateTime
   endUtc      DateTime
   reminded    Boolean  @default(false)
