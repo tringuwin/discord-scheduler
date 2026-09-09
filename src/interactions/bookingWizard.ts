@@ -26,6 +26,7 @@ import { availabilityRepo } from '../repositories/availabilityRepo';
 import { bookingRepo } from '../repositories/bookingRepo';
 import { guildRepo } from '../repositories/guildRepo';
 import { userPrefRepo } from '../repositories/userPrefRepo';
+import { notifyAdminsOfBooking } from './bookingNotifications';
 
 const MAX_OPTIONS = 25;
 const EXPIRED = 'This booking session expired. Please run `/book` again.';
@@ -253,6 +254,15 @@ export async function handleBookConfirm(interaction: ButtonInteraction): Promise
       `Booked! Meeting with **${names}** on **${formatSlotFull(new Date(startMs), tz)}** (${tz}).\n` +
       'See it any time with `/my-bookings`.',
     components: [],
+  });
+
+  // Let each booked admin know who booked them and when (best-effort; done
+  // after the reply so slow DMs can't miss the interaction response window).
+  await notifyAdminsOfBooking(interaction.client, {
+    adminIds: draft.adminIds,
+    organizerId: interaction.user.id,
+    startUtc: new Date(startMs),
+    guild,
   });
 }
 
