@@ -75,13 +75,20 @@ delete voice channels, so grant these permissions: **View Channels**,
 | `/availability set` · `view` · `clear` | Admin role | Manage your weekly bookable availability |
 | `/book` | Everyone | Book a meeting: pick one or more admins → day → time → add an optional message → confirm |
 | `/my-bookings` | Everyone | List your upcoming meetings; organizers get **Invite** + **Cancel**, the meeting admin gets **Cancel** |
-| `/my-schedule` | Admins | See who has booked you and when — every upcoming booking, with the organizer and any guests |
+| `/my-schedule` | Admins | See who has booked you and when — each booking's **number**, organizer, and any guests |
+| `/start-early <number>` | Booking admin | Open the meeting's voice channel now, before its scheduled time |
+| `/reschedule <number>` | Booking admin | Move a booking to a new open time (day → time picker) |
+| `/cancel <number>` | Booking admin | Cancel a booking, free its slot, and notify attendees |
 
 All times are in **Pacific Time** (PST/PDT, DST-aware) and shown in 12-hour
 AM/PM format. There is no per-user or per-server timezone setting.
 
-Whenever someone books an admin, that admin also gets a DM naming who booked
-them, the meeting time, and the booker's optional message.
+Every confirmed booking gets a **number** unique within the server (shown on
+confirmation, in the admin's booking DM, and in `/my-schedule`). Admins use that
+number with `/start-early`, `/reschedule`, and `/cancel`.
+
+Whenever someone books an admin, that admin also gets a DM naming the booking
+number, who booked them, the meeting time, and the booker's optional message.
 
 `/availability set` opens a menu: pick the day(s), then enter a start/end time
 (e.g. `9:00 AM` – `5:00 PM`; 24-hour `17:00` is also accepted).

@@ -26,6 +26,12 @@ export const CID = {
   /** Cancel button on a /my-bookings entry. */
   myBookingCancelPrefix: 'mybook:cancel:', // + <bookingId>
 
+  /** Reschedule wizard (admin). State lives in a session keyed by the message id. */
+  reschedDate: 'resched:date',
+  reschedTime: 'resched:time',
+  reschedConfirm: 'resched:confirm',
+  reschedAbort: 'resched:abort',
+
   /** Invite flow. */
   inviteStartPrefix: 'invite:start:', // + <bookingId>  (button on /my-bookings)
   inviteUsersPrefix: 'invite:users:', // + <bookingId>  (user-select)

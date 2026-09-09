@@ -28,19 +28,21 @@ export const myScheduleCommand: Command = {
 
     const shown = bookings.slice(0, MAX_SHOWN);
     const lines = shown.map((b, i) => {
+      // Lead with the booking number — it's the key for /start-early, /reschedule, /cancel.
+      const tag = b.number !== null ? `#${b.number}` : `${i + 1}.`;
       // The organizer is who booked; also surface any invitees who'll attend.
       const guests = b.participants
         .filter((p) => p.userId !== b.organizerId && p.role !== 'admin' && p.state !== 'declined')
         .map((p) => `<@${p.userId}>`);
       const withGuests = guests.length ? ` (with ${guests.join(', ')})` : '';
       const noteLine = b.note ? `\n> 💬 ${b.note}` : '';
-      return `**${i + 1}.** ${formatDateTime(b.startUtc)} — booked by <@${b.organizerId}>${withGuests}${noteLine}`;
+      return `**${tag}** ${formatDateTime(b.startUtc)} — booked by <@${b.organizerId}>${withGuests}${noteLine}`;
     });
 
     const embed = new EmbedBuilder()
       .setTitle('Upcoming bookings with you')
       .setDescription(lines.join('\n'))
-      .setFooter({ text: `Times shown in ${TZ_LABEL}` });
+      .setFooter({ text: `Times in ${TZ_LABEL} · use the # with /start-early, /reschedule, /cancel` });
 
     const note = bookings.length > MAX_SHOWN ? `_Showing the next ${MAX_SHOWN} of ${bookings.length}._` : undefined;
     await interaction.reply({ content: note, embeds: [embed], flags: MessageFlags.Ephemeral });

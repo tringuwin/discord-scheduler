@@ -18,7 +18,7 @@ describe('slash command definitions', () => {
 
   it('registers exactly the expected commands', () => {
     expect(commands.map((c) => c.data.name).sort()).toEqual(
-      ['availability', 'book', 'config', 'my-bookings', 'my-schedule'].sort(),
+      ['availability', 'book', 'cancel', 'config', 'my-bookings', 'my-schedule', 'reschedule', 'start-early'].sort(),
     );
   });
 });

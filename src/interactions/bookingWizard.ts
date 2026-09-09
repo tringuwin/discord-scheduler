@@ -12,17 +12,14 @@ import {
   type ModalSubmitInteraction,
   type StringSelectMenuInteraction,
 } from 'discord.js';
-import { DateTime } from 'luxon';
 import { CID } from './customIds';
 import { clearDraft, getDraft, saveDraft } from './bookingSession';
-import { dateKey, formatDateLabel, formatDateTime, formatTimeOfDay, TZ_LABEL } from '../domain/appTime';
-import { computeSlots, intersectSlots, HORIZON_DAYS, type Slot } from '../domain/slots';
-import { availabilityRepo } from '../repositories/availabilityRepo';
+import { formatDateLabel, formatDateTime, TZ_LABEL } from '../domain/appTime';
+import { dateOptions, loadCommonSlots, timeOptions, MAX_OPTIONS } from './slotPicker';
 import { bookingRepo } from '../repositories/bookingRepo';
 import { guildRepo } from '../repositories/guildRepo';
 import { notifyAdminsOfBooking } from './bookingNotifications';
 
-const MAX_OPTIONS = 25;
 const MAX_NOTE_LEN = 300; // keep the "short message" short (and well under Discord's limit)
 const EXPIRED = 'This booking session expired. Please run `/book` again.';
 
@@ -37,55 +34,8 @@ async function displayNames(guild: DiscordGuild, userIds: string[]): Promise<str
   return names.join(', ');
 }
 
-/** Slots when *all* the given admins are simultaneously free. */
-async function loadCommonSlots(guildId: string, adminIds: string[], slotMinutes: number): Promise<Slot[]> {
-  const now = DateTime.utc();
-  const perAdmin: Slot[][] = [];
-  for (const adminId of adminIds) {
-    const rules = await availabilityRepo.listForAdmin(guildId, adminId);
-    if (rules.length === 0) return []; // an admin with no availability => no common slot
-    const reserved = await bookingRepo.reservedStartsForAdmin(adminId, now.toJSDate());
-    perAdmin.push(
-      computeSlots({
-        rules,
-        slotMinutes,
-        reservedStartUtc: new Set(reserved),
-        now,
-        horizonDays: HORIZON_DAYS,
-      }),
-    );
-  }
-  return intersectSlots(perAdmin);
-}
-
 function selectRow(menu: StringSelectMenuBuilder): ActionRowBuilder<StringSelectMenuBuilder> {
   return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu);
-}
-
-function dateOptions(slots: Slot[]): StringSelectMenuOptionBuilder[] {
-  const keys: string[] = [];
-  const seen = new Set<string>();
-  for (const slot of slots) {
-    const key = dateKey(slot.startUtc);
-    if (!seen.has(key)) {
-      seen.add(key);
-      keys.push(key);
-    }
-  }
-  return keys
-    .slice(0, MAX_OPTIONS)
-    .map((key) => new StringSelectMenuOptionBuilder().setLabel(formatDateLabel(key)).setValue(key));
-}
-
-function timeOptions(slots: Slot[], day: string): StringSelectMenuOptionBuilder[] {
-  return slots
-    .filter((slot) => dateKey(slot.startUtc) === day)
-    .slice(0, MAX_OPTIONS)
-    .map((slot) =>
-      new StringSelectMenuOptionBuilder()
-        .setLabel(formatTimeOfDay(slot.startUtc))
-        .setValue(String(slot.startUtc.getTime())),
-    );
 }
 
 /** Build the admin picker (multi-select) used by the /book command. */
@@ -266,10 +216,11 @@ export async function handleBookMessageModal(interaction: ModalSubmitInteraction
   }
 
   const names = await displayNames(interaction.guild, draft.adminIds);
+  const numberLabel = result.booking.number !== null ? `Booking **#${result.booking.number}**` : 'Booked';
   const noteLine = note ? `\nYour message: “${note}”` : '';
   await interaction.update({
     content:
-      `Booked! Meeting with **${names}** on **${formatDateTime(new Date(startMs))}**.${noteLine}\n` +
+      `${numberLabel}! Meeting with **${names}** on **${formatDateTime(new Date(startMs))}**.${noteLine}\n` +
       'See it any time with `/my-bookings`.',
     components: [],
   });
@@ -277,6 +228,7 @@ export async function handleBookMessageModal(interaction: ModalSubmitInteraction
   // Let each booked admin know who booked them, when, and their message
   // (best-effort; done after the reply so slow DMs can't miss the response window).
   await notifyAdminsOfBooking(interaction.client, {
+    bookingNumber: result.booking.number,
     adminIds: draft.adminIds,
     organizerId: interaction.user.id,
     startUtc: new Date(startMs),

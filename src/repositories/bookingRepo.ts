@@ -23,6 +23,10 @@ export type CancelResult =
   | { ok: true; booking: Booking }
   | { ok: false; reason: 'not_found' | 'not_active' | 'forbidden' };
 
+export type RescheduleResult =
+  | { ok: true; booking: Booking }
+  | { ok: false; reason: 'not_active' | 'already_started' | 'slot_taken' };
+
 /** Data access for bookings, slot reservations, and their participants. */
 export const bookingRepo = {
   /** Distinct admins who have at least one availability rule in the guild. */
@@ -53,9 +57,17 @@ export const bookingRepo = {
     const adminIds = [...new Set(input.adminIds)];
     try {
       const booking = await prisma.$transaction(async (tx) => {
+        // Atomically claim the next per-guild booking number. The row-level
+        // increment serialises concurrent bookings, so numbers never collide.
+        const guild = await tx.guild.update({
+          where: { id: input.guildId },
+          data: { bookingSeq: { increment: 1 } },
+          select: { bookingSeq: true },
+        });
         const created = await tx.booking.create({
           data: {
             guildId: input.guildId,
+            number: guild.bookingSeq,
             organizerId: input.organizerId,
             status: 'confirmed',
             note: input.note ?? null,
@@ -126,6 +138,48 @@ export const bookingRepo = {
 
   findById(bookingId: string): Promise<Booking | null> {
     return prisma.booking.findUnique({ where: { id: bookingId } });
+  },
+
+  /** Look up a booking by its human-facing per-guild number. */
+  findByNumber(guildId: string, number: number): Promise<BookingWithParticipants | null> {
+    return prisma.booking.findUnique({
+      where: { guildId_number: { guildId, number } },
+      include: { participants: true },
+    });
+  },
+
+  /**
+   * Move a confirmed booking to a new time, re-reserving every admin's slot
+   * atomically. Refuses a meeting that already went live (has a channel). The
+   * unique (adminId, startUtc) index guards against double-booking the new slot.
+   */
+  async reschedule(bookingId: string, newStart: Date, newEnd: Date): Promise<RescheduleResult> {
+    const existing = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { reservations: true, channel: true },
+    });
+    if (!existing || existing.status !== 'confirmed') return { ok: false, reason: 'not_active' };
+    if (existing.channel) return { ok: false, reason: 'already_started' };
+
+    const adminIds = [...new Set(existing.reservations.map((r) => r.adminId))];
+    try {
+      const updated = await prisma.$transaction(async (tx) => {
+        await tx.slotReservation.deleteMany({ where: { bookingId } });
+        for (const adminId of adminIds) {
+          await tx.slotReservation.create({ data: { adminId, startUtc: newStart, bookingId } });
+        }
+        return tx.booking.update({
+          where: { id: bookingId },
+          data: { startUtc: newStart, endUtc: newEnd, reminded: false },
+        });
+      });
+      return { ok: true, booking: updated };
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        return { ok: false, reason: 'slot_taken' };
+      }
+      throw error;
+    }
   },
 
   getParticipant(bookingId: string, userId: string): Promise<Participant | null> {

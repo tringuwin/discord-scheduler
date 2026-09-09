@@ -65,6 +65,11 @@ export const meetingRepo = {
     return prisma.meetingChannel.findUnique({ where: { bookingId } });
   },
 
+  /** Delete only the channel record (used when a booking is cancelled outright). */
+  async removeChannel(bookingId: string): Promise<void> {
+    await prisma.meetingChannel.deleteMany({ where: { bookingId } });
+  },
+
   /** Remove the channel record and mark the booking done, atomically. */
   async closeMeeting(bookingId: string): Promise<void> {
     await prisma.$transaction([

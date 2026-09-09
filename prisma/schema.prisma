@@ -18,6 +18,7 @@ model Guild {
   categoryId      String? // category to create meeting voice channels under
   slotMinutes     Int     @default(30) // booking slot length
   reminderMinutes Int     @default(10) // how long before start to remind
+  bookingSeq      Int     @default(0) // monotonic counter for per-guild booking numbers
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -48,6 +49,7 @@ model AvailabilityRule {
 model Booking {
   id          String   @id @default(cuid())
   guildId     String
+  number      Int? // human-facing per-guild booking number (assigned on confirm)
   organizerId String // user who booked
   status      String   @default("confirmed") // pending|confirmed|cancelled|done
   note        String? // optional short message from the organizer
@@ -61,6 +63,7 @@ model Booking {
   participants Participant[]
   channel      MeetingChannel?
 
+  @@unique([guildId, number]) // a booking number is unique within its guild
   @@index([guildId, startUtc])
   @@index([status, startUtc])
 }

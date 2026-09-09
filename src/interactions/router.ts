@@ -22,6 +22,12 @@ import {
   handleInviteSelect,
   handleInviteStart,
 } from './inviteFlow';
+import {
+  handleReschedAbort,
+  handleReschedConfirm,
+  handleReschedDate,
+  handleReschedTime,
+} from './rescheduleWizard';
 
 /**
  * Single entry point for every interaction. Dispatches slash commands and
@@ -48,6 +54,8 @@ export async function routeInteraction(interaction: Interaction): Promise<void> 
       else if (customId === CID.bookAdmin) await handleBookAdminSelect(interaction);
       else if (customId === CID.bookDate) await handleBookDateSelect(interaction);
       else if (customId === CID.bookTime) await handleBookTimeSelect(interaction);
+      else if (customId === CID.reschedDate) await handleReschedDate(interaction);
+      else if (customId === CID.reschedTime) await handleReschedTime(interaction);
       return;
     }
 
@@ -68,6 +76,8 @@ export async function routeInteraction(interaction: Interaction): Promise<void> 
       else if (customId === CID.availClearCancel) await handleClearCancel(interaction);
       else if (customId === CID.bookAbort) await handleBookAbort(interaction);
       else if (customId === CID.bookConfirm) await handleBookConfirm(interaction);
+      else if (customId === CID.reschedConfirm) await handleReschedConfirm(interaction);
+      else if (customId === CID.reschedAbort) await handleReschedAbort(interaction);
       else if (customId.startsWith(CID.myBookingCancelPrefix)) await handleMyBookingCancel(interaction);
       else if (customId.startsWith(CID.inviteStartPrefix)) await handleInviteStart(interaction);
       else if (customId.startsWith(CID.inviteAcceptPrefix)) await handleInviteAccept(interaction);

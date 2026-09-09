@@ -208,6 +208,79 @@ describe('booking message', () => {
   });
 });
 
+describe('booking numbers & reschedule', () => {
+  async function bookAt(organizerId: string, slot: Slot) {
+    return bookingRepo.createConfirmed({
+      guildId: GUILD,
+      organizerId,
+      adminIds: ['a1'],
+      startUtc: slot.startUtc,
+      endUtc: slot.endUtc,
+    });
+  }
+
+  it('assigns sequential per-guild booking numbers', async () => {
+    await availabilityRepo.addRules(GUILD, 'a1', ALL_DAYS, 9 * 60, 17 * 60, 'UTC');
+    const slots = slotsFor(await availabilityRepo.listForAdmin(GUILD, 'a1'));
+    const first = await bookAt('u1', slots[0]!);
+    const second = await bookAt('u2', slots[1]!);
+    expect(first.ok && first.booking.number).toBe(1);
+    expect(second.ok && second.booking.number).toBe(2);
+
+    const found = await bookingRepo.findByNumber(GUILD, 1);
+    expect(found?.organizerId).toBe('u1');
+    expect(await bookingRepo.findByNumber(GUILD, 999)).toBeNull();
+  });
+
+  it('moves a booking to a new time, freeing the old slot', async () => {
+    await availabilityRepo.addRules(GUILD, 'a1', ALL_DAYS, 9 * 60, 17 * 60, 'UTC');
+    const slots = slotsFor(await availabilityRepo.listForAdmin(GUILD, 'a1'));
+    const from = slots[0]!;
+    const to = slots[1]!;
+    const res = await bookAt('u1', from);
+    expect(res.ok).toBe(true);
+    const bookingId = res.ok ? res.booking.id : '';
+
+    const moved = await bookingRepo.reschedule(bookingId, to.startUtc, to.endUtc);
+    expect(moved.ok).toBe(true);
+    if (moved.ok) expect(moved.booking.startUtc.getTime()).toBe(to.startUtc.getTime());
+
+    const reserved = await bookingRepo.reservedStartsForAdmin('a1', new Date(0));
+    expect(reserved).toContain(to.startUtc.getTime());
+    expect(reserved).not.toContain(from.startUtc.getTime());
+  });
+
+  it('rejects a reschedule onto a slot another booking holds, leaving the original intact', async () => {
+    await availabilityRepo.addRules(GUILD, 'a1', ALL_DAYS, 9 * 60, 17 * 60, 'UTC');
+    const slots = slotsFor(await availabilityRepo.listForAdmin(GUILD, 'a1'));
+    const mine = slots[0]!;
+    const taken = slots[1]!;
+    const res = await bookAt('u1', mine);
+    expect((await bookAt('u2', taken)).ok).toBe(true); // someone else holds `taken`
+    const bookingId = res.ok ? res.booking.id : '';
+
+    const conflict = await bookingRepo.reschedule(bookingId, taken.startUtc, taken.endUtc);
+    expect(conflict.ok).toBe(false);
+    if (!conflict.ok) expect(conflict.reason).toBe('slot_taken');
+
+    // The original reservation must survive the failed move.
+    const reserved = await bookingRepo.reservedStartsForAdmin('a1', new Date(0));
+    expect(reserved).toContain(mine.startUtc.getTime());
+  });
+
+  it('refuses to reschedule a meeting that already went live', async () => {
+    await availabilityRepo.addRules(GUILD, 'a1', ALL_DAYS, 9 * 60, 17 * 60, 'UTC');
+    const slots = slotsFor(await availabilityRepo.listForAdmin(GUILD, 'a1'));
+    const res = await bookAt('u1', slots[0]!);
+    const bookingId = res.ok ? res.booking.id : '';
+    await prisma.meetingChannel.create({ data: { bookingId, channelId: 'chan-1' } });
+
+    const outcome = await bookingRepo.reschedule(bookingId, slots[1]!.startUtc, slots[1]!.endUtc);
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.reason).toBe('already_started');
+  });
+});
+
 describe('admin schedule view', () => {
   it('lists bookings where the user is the booked admin, and not ones they organized', async () => {
     await availabilityRepo.addRules(GUILD, 'a1', ALL_DAYS, 9 * 60, 17 * 60, 'UTC');

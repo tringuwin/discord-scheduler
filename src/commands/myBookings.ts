@@ -31,7 +31,8 @@ async function renderMyBookings(guildId: string, userId: string): Promise<Intera
         .map((p) => `<@${p.userId}>`)
         .join(', ') || '_none_';
     const suffix = b.organizerId === userId ? '' : ` · booked by <@${b.organizerId}>`;
-    return `**${i + 1}.** ${formatDateTime(b.startUtc)} — with ${adminMentions}${suffix}`;
+    const tag = b.number !== null ? `#${b.number} · ` : '';
+    return `**${i + 1}.** ${tag}${formatDateTime(b.startUtc)} — with ${adminMentions}${suffix}`;
   });
 
   const embed = new EmbedBuilder()
